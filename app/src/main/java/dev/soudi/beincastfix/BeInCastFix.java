@@ -1,6 +1,5 @@
 package dev.soudi.beincastfix;
 
-import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
 
@@ -13,10 +12,8 @@ import io.github.libxposed.api.XposedModuleInterface;
 public final class BeInCastFix extends XposedModule {
     private static final String TARGET_PACKAGE = "ptv.bein.mena";
 
-    public BeInCastFix(
-            XposedInterface base,
-            XposedModuleInterface.ModuleLoadedParam param) {
-        super(base, param);
+    public BeInCastFix() {
+        super();
     }
 
     @Override
