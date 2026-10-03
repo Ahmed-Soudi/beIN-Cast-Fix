@@ -34,7 +34,7 @@ To undo the experiment, disable or uninstall **beIN Cast Root Prototype** in the
 
 ## Build and verification
 
-The GitHub Actions workflow builds ARM32 and ARM64 using JDK 17, Android SDK 33, Build Tools 35.0.0, NDK 27.2.12479018, and CMake 3.22.1. All source dependencies are pinned; see [THIRD_PARTY.md](THIRD_PARTY.md) and [native/DEPENDENCIES.md](native/DEPENDENCIES.md).
+The GitHub Actions workflow builds ARM32 and ARM64 using JDK 17, Android SDK 34, Build Tools 35.0.0, NDK 27.3.13750724, and CMake 3.22.1, preinstalled on the Ubuntu 22.04 runner. The Java helper uses only existing public APIs and its DEX minimum API is 26; the module's runtime gate remains Android 13/API 33. All source dependencies are pinned; see [THIRD_PARTY.md](THIRD_PARTY.md) and [native/DEPENDENCIES.md](native/DEPENDENCIES.md).
 
 ```sh
 bash zygisk/build.sh

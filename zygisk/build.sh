@@ -7,10 +7,10 @@ if [[ -z "$SDK_ROOT" ]]; then
     echo "Set ANDROID_SDK_ROOT to an Android SDK installation." >&2
     exit 1
 fi
-NDK_DIR=${BEIN_NDK_DIR:-"$SDK_ROOT/ndk/27.2.12479018"}
+NDK_DIR=${BEIN_NDK_DIR:-"$SDK_ROOT/ndk/27.3.13750724"}
 CMAKE_BIN=${BEIN_CMAKE_BIN:-"$SDK_ROOT/cmake/3.22.1/bin/cmake"}
 NINJA_BIN="$SDK_ROOT/cmake/3.22.1/bin/ninja"
-ANDROID_JAR="$SDK_ROOT/platforms/android-33/android.jar"
+ANDROID_JAR="$SDK_ROOT/platforms/android-34/android.jar"
 D8_BIN="$SDK_ROOT/build-tools/35.0.0/d8"
 
 for required in "$ANDROID_JAR" "$D8_BIN" "$CMAKE_BIN" "$NDK_DIR/build/cmake/android.toolchain.cmake"; do
