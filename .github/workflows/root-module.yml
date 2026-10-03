@@ -1,0 +1,33 @@
+name: Build beIN Cast Root Prototype
+
+on:
+  push:
+    branches: [main]
+    paths: ['zygisk/**', '.github/workflows/root-module.yml']
+  pull_request:
+    paths: ['zygisk/**', '.github/workflows/root-module.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned Android toolchain
+        run: sdkmanager 'platforms;android-33' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - name: Build and check ARM32 and ARM64 root-module payloads
+        run: bash zygisk/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beIN-Cast-Root-v4-prototype
+          path: zygisk/dist/beIN-Cast-Root-v4-prototype.zip
+          if-no-files-found: error

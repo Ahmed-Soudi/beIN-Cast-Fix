@@ -1,0 +1,27 @@
+{
+  "lsplant": {
+    "repository": "https://github.com/LSPosed/LSPlant.git",
+    "commit": "a612522188d903a523fc6760cd4ee257c3224d8c",
+    "directory": "vendor/lsplant",
+    "recursive_submodules": true,
+    "license": "LGPL-3.0",
+    "dex_builder_commit": "b5a00f2ea94ad4c3b92054fd53896dbb429298f9",
+    "parallel_hashmap_commit": "c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2"
+  },
+  "dobby": {
+    "repository": "https://github.com/jmpews/Dobby.git",
+    "commit": "5dfc8546954ce3b3198132ab13fddb89ee92cdd7",
+    "directory": "vendor/dobby",
+    "recursive_submodules": false,
+    "license": "Apache-2.0"
+  },
+  "zygisk": {
+    "repository": "https://github.com/topjohnwu/zygisk-module-sample.git",
+    "commit": "7bb941ac8edfcffd1d23761e401c45ca95409dc1",
+    "directory": "vendor/zygisk",
+    "recursive_submodules": false,
+    "license": "0BSD",
+    "api_version": 4
+  }
+}
+
