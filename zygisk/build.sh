@@ -41,6 +41,7 @@ if any(line.startswith(('-', '+', 'U')) for line in state.splitlines()):
     raise SystemExit('Nested dependency checkout differs from pinned source')
 PY
 fetch_repo https://github.com/jmpews/Dobby.git 5dfc8546954ce3b3198132ab13fddb89ee92cdd7 "$PROJECT_DIR/vendor/dobby"
+python3 "$PROJECT_DIR/native/patches/apply-dobby-patch.py" "$PROJECT_DIR/vendor/dobby"
 fetch_repo https://github.com/topjohnwu/zygisk-module-sample.git 7bb941ac8edfcffd1d23761e401c45ca95409dc1 "$PROJECT_DIR/vendor/zygisk"
 
 bash "$PROJECT_DIR/tests/run-host-tests.sh"

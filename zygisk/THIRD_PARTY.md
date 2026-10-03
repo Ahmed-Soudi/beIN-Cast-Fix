@@ -10,3 +10,5 @@ This module's source is published under GNU GPL version 3; see LICENSE. Source d
 - **Magisk module installer**: https://github.com/topjohnwu/Magisk/blob/v28.1/scripts/module_installer.sh — GPL-3.0; standard installer entry point included under META-INF for Magisk installation. KernelSU uses its own module installer.
 
 The corresponding source revisions and build scripts are provided so the statically linked native library can be rebuilt and modified. Dependency license files are included in the generated module ZIP under `licenses/`.
+
+The pinned Dobby source receives the recorded `native/patches/dobby-android-elf.patch` before building: ARM64 assembly uses Android ELF relocation syntax while preserving the Apple branch, and an Apple-only `-arch armv7` flag is removed from Android ARM32 builds. The patch script verifies the source revision and exact input before applying it. This repairs upstream build portability; it does not change the Cast hook.

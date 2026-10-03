@@ -6,6 +6,9 @@ Use Git to check out each exact commit. Initialize LSPlant's submodules recursiv
 and verify the DexBuilder and parallel-hashmap commits listed in the manifest.
 GitHub source archives do not contain submodule contents. Source-download or build
 failures must stop the build; do not substitute a moving branch or another binary.
+After checking out Dobby, run `python3 native/patches/apply-dobby-patch.py vendor/dobby`
+before configuring CMake. The recorded patch corrects its Android ARM64 ELF
+relocations and ARM32 assembler flags, with exact upstream-file hash checks.
 
 The LSPlant revision is the revision pinned by public LSPosed source in January
 2024. Its CMake project uses C++20, rather than the current LSPlant C++ modules.
