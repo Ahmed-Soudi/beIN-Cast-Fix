@@ -1,22 +1,19 @@
-# beIN Cast Fix
+# beIN Cast Fix — v2-inert diagnostic
 
-Experimental LSPosed module for investigating/restoring the casting behavior that changed between beIN CONNECT MENA 10.3.7 and 10.4.
+Diagnostic LSPosed/Xposed module for `ptv.bein.mena`.
 
-## Target setup
+## Purpose
 
-- Samsung Galaxy M127F / Android 13
-- KernelSU Next + ReZygisk
-- LSPosed
-- beIN CONNECT MENA 10.4
+This build deliberately performs **no hook at all**. Its `handleLoadPackage()` only checks the package name and returns without logging, reflection, class lookup, or touching Google Cast.
 
-## Current status
+Test:
+1. Install the APK.
+2. Enable the module in LSPosed.
+3. Scope it only to beIN CONNECT (`ptv.bein.mena`).
+4. Force-stop beIN and open it.
 
-Project scaffold only. The hook is intentionally inert except for an Xposed log entry. The actual compatibility hook will be based on analysis of the 10.3.7 and 10.4 app builds rather than broad system hooks.
+Interpretation:
+- If beIN still crashes at the splash screen, merely loading this Xposed module into beIN is enough to reproduce the problem.
+- If beIN opens normally, something executed by v1 caused the crash and can be reintroduced incrementally.
 
-## Build
-
-GitHub Actions builds a debug APK on push, pull request, or manual dispatch.
-
-## Safety
-
-Scope the module to the beIN CONNECT MENA app in LSPosed. Do not enable it system-wide.
+Targeted LSPosed runtime during development: v2.2.0 build 7854.
