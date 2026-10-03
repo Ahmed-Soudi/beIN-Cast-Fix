@@ -186,13 +186,13 @@ bool g_initialized = false;
 std::atomic_bool g_cast_attempted{false};
 
 void *inline_hook(void *target, void *replacement) {
-    void *original = nullptr;
-    const int status = DobbyHook(target, replacement, &original);
+    dobby_dummy_func_t original = nullptr;
+    const int status = DobbyHook(target, reinterpret_cast<dobby_dummy_func_t>(replacement), &original);
     if (status != 0 || !original) {
         LOGE("ART inline hook failed (status=%d)", status);
         return nullptr;
     }
-    return original;
+    return reinterpret_cast<void *>(original);
 }
 bool inline_unhook(void *target) { return DobbyDestroy(target) == 0; }
 

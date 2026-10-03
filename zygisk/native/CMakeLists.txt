@@ -21,8 +21,9 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor" CACHE PATH "Pinned dependency directory")
 set(LSPLANT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(DEX_BUILDER_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-set(DOBBY_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
-set(DOBBY_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(DOBBY_GENERATE_SHARED OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(DOBBY_DEBUG OFF CACHE BOOL "" FORCE)
 set(Plugin.SymbolResolver OFF CACHE BOOL "" FORCE)
 set(Plugin.ImportTableReplace OFF CACHE BOOL "" FORCE)
@@ -32,7 +33,7 @@ add_subdirectory("${VENDOR_DIR}/lsplant/lsplant/src/main/jni" lsplant EXCLUDE_FR
 add_subdirectory("${VENDOR_DIR}/dobby" dobby EXCLUDE_FROM_ALL)
 
 add_library(bein_cast_root SHARED main.cpp)
-# Dobby sets C++17 in its own directory; our source and LSPlant require C++20.
+# Dobby sets C++11 in its own directory; our source and LSPlant require C++20.
 set_property(TARGET bein_cast_root PROPERTY CXX_STANDARD 20)
 target_include_directories(bein_cast_root PRIVATE "${VENDOR_DIR}/zygisk/module/jni")
 target_compile_options(bein_cast_root PRIVATE
@@ -40,5 +41,4 @@ target_compile_options(bein_cast_root PRIVATE
 target_link_options(bein_cast_root PRIVATE
     -Wl,--gc-sections -Wl,--no-undefined -Wl,--exclude-libs,ALL
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
-target_link_libraries(bein_cast_root PRIVATE lsplant_static dobby_static log dl z)
-
+target_link_libraries(bein_cast_root PRIVATE lsplant_static dobby log dl z)

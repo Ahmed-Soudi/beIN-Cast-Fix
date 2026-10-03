@@ -23,6 +23,7 @@ fetch_repo() {
         git init -q "$destination"
         git -C "$destination" remote add origin "$url"
     fi
+    git -C "$destination" remote set-url origin "$url"
     git -C "$destination" fetch -q --depth 1 origin "$revision"
     git -C "$destination" checkout -q --detach FETCH_HEAD
     [[ $(git -C "$destination" rev-parse HEAD) == "$revision" ]] || exit 1
@@ -40,8 +41,7 @@ for expected in ['b5a00f2ea94ad4c3b92054fd53896dbb429298f9', 'c2fabc9ac008c4ce8e
 if any(line.startswith(('-', '+', 'U')) for line in state.splitlines()):
     raise SystemExit('Nested dependency checkout differs from pinned source')
 PY
-fetch_repo https://github.com/jmpews/Dobby.git 5dfc8546954ce3b3198132ab13fddb89ee92cdd7 "$PROJECT_DIR/vendor/dobby"
-python3 "$PROJECT_DIR/native/patches/apply-dobby-patch.py" "$PROJECT_DIR/vendor/dobby"
+fetch_repo https://github.com/LSPosed/Dobby.git 6813ca76ddeafcaece525bf8c6cde7ff4c21d3ce "$PROJECT_DIR/vendor/dobby"
 fetch_repo https://github.com/topjohnwu/zygisk-module-sample.git 7bb941ac8edfcffd1d23761e401c45ca95409dc1 "$PROJECT_DIR/vendor/zygisk"
 
 bash "$PROJECT_DIR/tests/run-host-tests.sh"

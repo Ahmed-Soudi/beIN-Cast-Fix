@@ -6,15 +6,15 @@ Use Git to check out each exact commit. Initialize LSPlant's submodules recursiv
 and verify the DexBuilder and parallel-hashmap commits listed in the manifest.
 GitHub source archives do not contain submodule contents. Source-download or build
 failures must stop the build; do not substitute a moving branch or another binary.
-After checking out Dobby, run `python3 native/patches/apply-dobby-patch.py vendor/dobby`
-before configuring CMake. The recorded patch corrects its Android ARM64 ELF
-relocations and ARM32 assembler flags, with exact upstream-file hash checks.
 
-The LSPlant revision is the revision pinned by public LSPosed source in January
-2024. Its CMake project uses C++20, rather than the current LSPlant C++ modules.
-Dobby is pinned to a source revision also used by the standalone Zygisk example
-https://github.com/tiwe0/Dejavu/blob/main/zygisk/scripts/fetch-third-party.sh .
-These are source references, not proof of operation on this device.
+LSPlant and Dobby are the exact pair pinned by the public LSPosed tree at
+`df74d83eb03a44cc6ad268841ac2ada28d077c77` (January 2024):
+https://github.com/LSPosed/LSPosed/tree/df74d83eb03a44cc6ad268841ac2ada28d077c77/external .
+LSPlant uses C++20, rather than the current LSPlant C++ modules. The Dobby fork
+uses C++ generated ARM bridges and exposes a static `dobby` CMake target when
+`DOBBY_GENERATE_SHARED=OFF`, as configured in that LSPosed source tree. Dobby has
+no recursive submodules. These source references do not prove operation on this
+device; the project NDK build and subsequent device test provide that validation.
 
 Build with an Android NDK supporting C++20 (the project build uses NDK r27), CMake
 3.22 or later, Android API 26, and `ANDROID_STL=c++_static`. Build each ABI separately:

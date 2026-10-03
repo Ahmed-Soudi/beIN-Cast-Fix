@@ -9,8 +9,8 @@
     "parallel_hashmap_commit": "c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2"
   },
   "dobby": {
-    "repository": "https://github.com/jmpews/Dobby.git",
-    "commit": "5dfc8546954ce3b3198132ab13fddb89ee92cdd7",
+    "repository": "https://github.com/LSPosed/Dobby.git",
+    "commit": "6813ca76ddeafcaece525bf8c6cde7ff4c21d3ce",
     "directory": "vendor/dobby",
     "recursive_submodules": false,
     "license": "Apache-2.0"
@@ -24,4 +24,3 @@
     "api_version": 4
   }
 }
-
