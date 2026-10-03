@@ -1,19 +1,5 @@
-# beIN Cast Fix — v2-inert diagnostic
+# beIN Cast Fix — v3 modern inert
 
-Diagnostic LSPosed/Xposed module for `ptv.bein.mena`.
+Control experiment using modern libxposed API 102. No callbacks, logging, reflection, class lookups, or hooks. Keeps the v2 application ID and Android SDK settings. Requires LSPosed with API 102 support.
 
-## Purpose
-
-This build deliberately performs **no hook at all**. Its `handleLoadPackage()` only checks the package name and returns without logging, reflection, class lookup, or touching Google Cast.
-
-Test:
-1. Install the APK.
-2. Enable the module in LSPosed.
-3. Scope it only to beIN CONNECT (`ptv.bein.mena`).
-4. Force-stop beIN and open it.
-
-Interpretation:
-- If beIN still crashes at the splash screen, merely loading this Xposed module into beIN is enough to reproduce the problem.
-- If beIN opens normally, something executed by v1 caused the crash and can be reintroduced incrementally.
-
-Targeted LSPosed runtime during development: v2.2.0 build 7854.
+Unscope the legacy module before installing this update. Enable this module and scope only ptv.bein.mena. Force-stop beIN and reopen it. Confirm LSPosed recognizes and loads the modern module; a working launch with the module rejected or not loaded is inconclusive. Export LSPosed logs with the result.
