@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: bein-cast-root-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -21,12 +25,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-          log-accepted-android-sdk-licenses: false
       - name: Install pinned Android toolchain
-        run: sdkmanager 'platforms;android-33' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+        run: |
+          SDKMANAGER_BIN="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          python3 - "$SDKMANAGER_BIN" <<'PY'
+          import subprocess, sys
+          subprocess.run([sys.argv[1], '--licenses'], input='y\n' * 200, text=True, check=True, stdout=subprocess.DEVNULL)
+          PY
+          "$SDKMANAGER_BIN" 'platforms;android-33' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Build and check ARM32 and ARM64 root-module payloads
         run: bash zygisk/build.sh
       - uses: actions/upload-artifact@v4
