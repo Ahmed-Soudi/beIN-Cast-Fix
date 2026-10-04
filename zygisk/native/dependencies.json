@@ -15,6 +15,13 @@
     "recursive_submodules": false,
     "license": "Apache-2.0"
   },
+  "xz_embedded": {
+    "repository": "https://github.com/tukaani-project/xz-embedded.git",
+    "commit": "ae63ae3a36ed01724674e8f3d750dc47bf125410",
+    "directory": "vendor/xz-embedded",
+    "recursive_submodules": false,
+    "license": "0BSD"
+  },
   "zygisk": {
     "repository": "https://github.com/topjohnwu/zygisk-module-sample.git",
     "commit": "7bb941ac8edfcffd1d23761e401c45ca95409dc1",

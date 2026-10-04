@@ -16,11 +16,19 @@ uses C++ generated ARM bridges and exposes a static `dobby` CMake target when
 no recursive submodules. These source references do not prove operation on this
 device; the project NDK build and subsequent device test provide that validation.
 
+XZ Embedded is pinned at `ae63ae3a36ed01724674e8f3d750dc47bf125410` (0BSD).
+The static decoder supports CRC32, CRC64, SHA-256, and the ARM, ARM64, ARM Thumb,
+and x86 BCJ filters; unsupported integrity checks are rejected. It is used only
+to decode the loaded runtime's `.gnu_debugdata` into a bounded mini-ELF symbol
+table. The resolver validates ELF layout and resolved addresses against the
+original runtime's loaded segments. No runtime library is replaced and no
+undocumented system `liblzma` dependency is introduced.
+
 Build with an Android NDK supporting C++20 (the project build uses NDK r27), CMake
 3.22 or later, Android API 26, and `ANDROID_STL=c++_static`. Build each ABI separately:
 `arm64-v8a` and `armeabi-v7a`. The library is `libbein_cast_root.so`; package it as
 `zygisk/<ABI>.so`. Its only public export is `zygisk_module_entry`. Check that
-`libc++_shared.so`, LSPlant, and Dobby are absent from ELF DT_NEEDED entries. Static
+`libc++_shared.so`, LSPlant, Dobby, and `liblzma` are absent from ELF DT_NEEDED entries. Static
 library symbols are hidden to reduce C++ symbol collisions with the host app.
 
 Package the compiled Java bridge as `hook.dex` at the module root. The native

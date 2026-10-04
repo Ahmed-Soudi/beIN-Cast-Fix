@@ -22,6 +22,8 @@
 #include <lsplant.hpp>
 #include <zygisk.hpp>
 
+#include "ArtResolver.hpp"
+
 namespace {
 constexpr char kLogTag[] = "BeINCastRoot";
 constexpr char kProcess[] = "ptv.bein.mena";
@@ -55,129 +57,11 @@ private:
     bool active_;
 };
 
-// Resolve ART's hidden symbols from both .dynsym and .symtab in its actual loaded
-// file. ElfW selects the correct layout for a 32-bit or 64-bit app process.
-class ArtResolver {
-public:
-    ~ArtResolver() { if (image_) munmap(image_, size_); }
-    bool open_loaded() {
-        dl_iterate_phdr(find_loaded, this);
-        if (path_.empty() || segments_.empty()) {
-            LOGE("ART resolver: loaded libart.so was not found");
-            return false;
-        }
-        const int fd = open(path_.c_str(), O_RDONLY | O_CLOEXEC);
-        if (fd < 0) {
-            LOGE("ART resolver: cannot open libart.so (errno=%d)", errno);
-            return false;
-        }
-        struct stat status{};
-        if (fstat(fd, &status) != 0 || status.st_size <= 0 ||
-            static_cast<uintmax_t>(status.st_size) > std::numeric_limits<size_t>::max()) {
-            close(fd);
-            LOGE("ART resolver: invalid file size");
-            return false;
-        }
-        size_ = static_cast<size_t>(status.st_size);
-        image_ = mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0);
-        close(fd);
-        if (image_ == MAP_FAILED) {
-            image_ = nullptr;
-            LOGE("ART resolver: mmap failed (errno=%d)", errno);
-            return false;
-        }
-        if (!range(0, sizeof(ElfW(Ehdr)))) return invalid("truncated ELF header");
-        const auto *header = static_cast<const ElfW(Ehdr) *>(image_);
-        constexpr unsigned char kElfClass = sizeof(void *) == 8 ? ELFCLASS64 : ELFCLASS32;
-        if (memcmp(header->e_ident, ELFMAG, SELFMAG) != 0 ||
-            header->e_ident[EI_CLASS] != kElfClass || header->e_ident[EI_DATA] != ELFDATA2LSB ||
-            header->e_type != ET_DYN || header->e_shentsize != sizeof(ElfW(Shdr)) ||
-            header->e_shnum == 0 || !range(header->e_shoff,
-                static_cast<size_t>(header->e_shnum) * sizeof(ElfW(Shdr)))) {
-            return invalid("unsupported ELF header/section table");
-        }
-        const auto *sections = reinterpret_cast<const ElfW(Shdr) *>(bytes() + header->e_shoff);
-        for (size_t index = 0; index < header->e_shnum; ++index) {
-            const auto &section = sections[index];
-            if (section.sh_type != SHT_DYNSYM && section.sh_type != SHT_SYMTAB) continue;
-            if (section.sh_link >= header->e_shnum || section.sh_entsize != sizeof(ElfW(Sym)) ||
-                section.sh_size % sizeof(ElfW(Sym)) != 0 ||
-                !range(section.sh_offset, section.sh_size)) continue;
-            const auto &strings = sections[section.sh_link];
-            if (strings.sh_type != SHT_STRTAB || !range(strings.sh_offset, strings.sh_size)) continue;
-            Table table{reinterpret_cast<const ElfW(Sym) *>(bytes() + section.sh_offset),
-                        static_cast<size_t>(section.sh_size / sizeof(ElfW(Sym))),
-                        reinterpret_cast<const char *>(bytes() + strings.sh_offset),
-                        static_cast<size_t>(strings.sh_size)};
-            if (section.sh_type == SHT_DYNSYM) dynamic_ = table;
-            else full_ = table;
-        }
-        if (!dynamic_.symbols && !full_.symbols) return invalid("no symbol tables");
-        LOGI("ART resolver ready (%s, dynsym=%zu, symtab=%zu)",
-             sizeof(void *) == 8 ? "64-bit" : "32-bit", dynamic_.count, full_.count);
-        return true;
-    }
-    void *find(std::string_view name, bool prefix = false) const {
-        if (void *result = find_in(dynamic_, name, prefix)) return result;
-        return find_in(full_, name, prefix);
-    }
-private:
-    struct Table {
-        const ElfW(Sym) *symbols = nullptr;
-        size_t count = 0;
-        const char *strings = nullptr;
-        size_t strings_size = 0;
-    };
-    void *image_ = nullptr;
-    size_t size_ = 0;
-    uintptr_t bias_ = 0;
-    std::string path_;
-    std::vector<std::pair<uintptr_t, uintptr_t>> segments_;
-    Table dynamic_, full_;
-    const unsigned char *bytes() const { return static_cast<const unsigned char *>(image_); }
-    bool range(size_t offset, size_t count) const { return offset <= size_ && count <= size_ - offset; }
-    bool invalid(const char *message) const { LOGE("ART resolver: %s", message); return false; }
-    static int find_loaded(dl_phdr_info *info, size_t, void *opaque) {
-        auto *self = static_cast<ArtResolver *>(opaque);
-        if (!info || !info->dlpi_name) return 0;
-        std::string_view name(info->dlpi_name);
-        const auto slash = name.rfind('/');
-        if ((slash == std::string_view::npos ? name : name.substr(slash + 1)) != "libart.so") return 0;
-        self->path_ = name;
-        self->bias_ = static_cast<uintptr_t>(info->dlpi_addr);
-        for (size_t index = 0; index < info->dlpi_phnum; ++index) {
-            const auto &segment = info->dlpi_phdr[index];
-            if (segment.p_type != PT_LOAD || segment.p_memsz == 0 ||
-                segment.p_vaddr > UINTPTR_MAX - self->bias_) continue;
-            const uintptr_t begin = self->bias_ + segment.p_vaddr;
-            if (segment.p_memsz > UINTPTR_MAX - begin) continue;
-            self->segments_.emplace_back(begin, begin + segment.p_memsz);
-        }
-        return 1;
-    }
-    void *find_in(const Table &table, std::string_view name, bool prefix) const {
-        if (!table.symbols || name.empty()) return nullptr;
-        for (size_t index = 0; index < table.count; ++index) {
-            const auto &symbol = table.symbols[index];
-            if (symbol.st_shndx == SHN_UNDEF || symbol.st_value == 0 ||
-                symbol.st_name >= table.strings_size || symbol.st_value > UINTPTR_MAX - bias_) continue;
-            const char *candidate = table.strings + symbol.st_name;
-            const void *end = memchr(candidate, '\0', table.strings_size - symbol.st_name);
-            if (!end) continue;
-            const size_t length = static_cast<const char *>(end) - candidate;
-            if ((prefix ? length < name.size() : length != name.size()) ||
-                memcmp(candidate, name.data(), name.size()) != 0) continue;
-            const uintptr_t address = bias_ + symbol.st_value;
-            for (const auto &[begin, finish] : segments_) {
-                if (address >= begin && address < finish && symbol.st_size <= finish - address)
-                    return reinterpret_cast<void *>(address);
-            }
-        }
-        return nullptr;
-    }
-};
+void art_resolver_log(bool error, const char *message) {
+    __android_log_print(error ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO, kLogTag, "%s", message);
+}
 
-ArtResolver g_art;
+ArtResolver g_art{art_resolver_log};
 jclass g_bridge = nullptr;
 jmethodID g_bridge_constructor = nullptr;
 jobject g_callback = nullptr;
@@ -356,7 +240,7 @@ public:
         env_->ReleaseStringUTFChars(args->nice_name, name);
         if (!selected_) { unload(); return; }
         const int sdk = android_get_device_api_level();
-        LOGI("selected %s (API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
+        LOGI("selected %s (v5, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
         if (sdk != 33) {
             LOGE("prototype supports Android 13/API33 only");
             selected_ = false;

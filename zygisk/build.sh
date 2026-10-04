@@ -43,7 +43,9 @@ if any(line.startswith(('-', '+', 'U')) for line in state.splitlines()):
 PY
 fetch_repo https://github.com/LSPosed/Dobby.git 6813ca76ddeafcaece525bf8c6cde7ff4c21d3ce "$PROJECT_DIR/vendor/dobby"
 fetch_repo https://github.com/topjohnwu/zygisk-module-sample.git 7bb941ac8edfcffd1d23761e401c45ca95409dc1 "$PROJECT_DIR/vendor/zygisk"
+fetch_repo https://github.com/tukaani-project/xz-embedded.git ae63ae3a36ed01724674e8f3d750dc47bf125410 "$PROJECT_DIR/vendor/xz-embedded"
 
+bash "$PROJECT_DIR/tests/run-art-resolver-tests.sh"
 bash "$PROJECT_DIR/tests/run-host-tests.sh"
 javac --release 8 -cp "$ANDROID_JAR" -d "$PROJECT_DIR/build/classes" \
     "$PROJECT_DIR/java/com/soudi/beincastroot/HookBridge.java"
@@ -64,7 +66,7 @@ from pathlib import Path
 import sys
 vendor, out = map(Path, sys.argv[1:])
 out.mkdir(parents=True, exist_ok=True)
-for name in ['lsplant', 'dobby']:
+for name in ['lsplant', 'dobby', 'xz-embedded']:
     source = vendor / name
     files = [p for p in source.iterdir() if p.is_file() and p.name.upper().startswith(('LICENSE', 'COPYING'))]
     if not files:
@@ -93,7 +95,7 @@ symbols = subprocess.check_output([sys.argv[1], '--dyn-syms', '--wide', sys.argv
 if 'zygisk_module_entry' not in symbols:
     raise SystemExit('Missing Zygisk entry export')
 dependencies = subprocess.check_output([sys.argv[1], '--dynamic', '--wide', sys.argv[2]], text=True)
-for library in ['libc++_shared.so', 'liblsplant', 'libdobby']:
+for library in ['libc++_shared.so', 'liblsplant', 'libdobby', 'liblzma']:
     if library in dependencies:
         raise SystemExit('Unexpected shared-library dependency: ' + library)
 PY
@@ -101,4 +103,4 @@ PY
 done
 
 mkdir -p "$PROJECT_DIR/dist"
-python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v4-prototype.zip"
+python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v5-prototype.zip"

@@ -32,6 +32,20 @@ set(Plugin.Android.BionicLinkerUtil OFF CACHE BOOL "" FORCE)
 add_subdirectory("${VENDOR_DIR}/lsplant/lsplant/src/main/jni" lsplant EXCLUDE_FROM_ALL)
 add_subdirectory("${VENDOR_DIR}/dobby" dobby EXCLUDE_FROM_ALL)
 
+set(XZ_DIR "${VENDOR_DIR}/xz-embedded")
+add_library(bein_xz STATIC
+    "${XZ_DIR}/linux/lib/xz/xz_crc32.c"
+    "${XZ_DIR}/linux/lib/xz/xz_crc64.c"
+    "${XZ_DIR}/linux/lib/xz/xz_sha256.c"
+    "${XZ_DIR}/linux/lib/xz/xz_dec_stream.c"
+    "${XZ_DIR}/linux/lib/xz/xz_dec_lzma2.c"
+    "${XZ_DIR}/linux/lib/xz/xz_dec_bcj.c")
+target_include_directories(bein_xz PUBLIC "${XZ_DIR}/linux/include/linux"
+    PRIVATE "${XZ_DIR}/userspace")
+target_compile_definitions(bein_xz PUBLIC XZ_USE_CRC64 XZ_USE_SHA256 PRIVATE XZ_DEC_SINGLE
+    XZ_DEC_X86 XZ_DEC_ARM XZ_DEC_ARMTHUMB XZ_DEC_ARM64)
+set_property(TARGET bein_xz PROPERTY C_STANDARD 11)
+
 add_library(bein_cast_root SHARED main.cpp)
 # Dobby sets C++11 in its own directory; our source and LSPlant require C++20.
 set_property(TARGET bein_cast_root PROPERTY CXX_STANDARD 20)
@@ -41,4 +55,4 @@ target_compile_options(bein_cast_root PRIVATE
 target_link_options(bein_cast_root PRIVATE
     -Wl,--gc-sections -Wl,--no-undefined -Wl,--exclude-libs,ALL
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
-target_link_libraries(bein_cast_root PRIVATE lsplant_static dobby log dl z)
+target_link_libraries(bein_cast_root PRIVATE lsplant_static dobby bein_xz log dl z)

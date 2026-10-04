@@ -6,6 +6,7 @@ This module's source is published under GNU GPL version 3; see LICENSE. Source d
 - **DexBuilder**: https://github.com/LSPosed/DexBuilder/tree/b5a00f2ea94ad4c3b92054fd53896dbb429298f9 — LGPL-3.0; fetched through LSPlant's pinned submodule.
 - **parallel-hashmap**: revision c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2 — fetched through the pinned DexBuilder submodule; its license is retained from that checkout.
 - **Dobby**: https://github.com/LSPosed/Dobby/tree/6813ca76ddeafcaece525bf8c6cde7ff4c21d3ce — Apache-2.0 native inline-hook backend, paired with the same LSPlant revision in public LSPosed source.
+- **XZ Embedded**: https://github.com/tukaani-project/xz-embedded/tree/ae63ae3a36ed01724674e8f3d750dc47bf125410 — 0BSD. Its statically linked decoder reads `.gnu_debugdata`; no undocumented system compression library is loaded.
 - **Official Zygisk module API header**: https://github.com/topjohnwu/zygisk-module-sample/tree/7bb941ac8edfcffd1d23761e401c45ca95409dc1 — 0BSD API version 4 header; copyright and permission notice remain in its source.
 - **Magisk module installer**: https://github.com/topjohnwu/Magisk/blob/v28.1/scripts/module_installer.sh — GPL-3.0; standard installer entry point included under META-INF for Magisk installation. KernelSU uses its own module installer.
 
