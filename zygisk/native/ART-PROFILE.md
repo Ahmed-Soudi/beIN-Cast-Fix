@@ -1,4 +1,4 @@
-# Inspected ART profile for version 7
+# Inspected ART profile used by versions 7 and 8
 
 This is a device-specific compatibility profile, not a general Android 13 ABI.
 Only API 33, ARM64, GNU build ID `a47994c420371ffbd05d16fc9a15ac9f`, and a
@@ -82,3 +82,12 @@ or hooked-method maps were installed, the class-status difference alone cannot
 explain that crash. Its mechanism remains unproved. Preflight avoids known
 missing-symbol failures before mutation; it does not roll back a later backend
 or JNI initialization failure.
+
+In v7, the engine and Java hooks completed initialization, but no successful Cast setter
+override was logged. Startup again failed with the same protected Java stack as
+the inert scoped tests, attempting a 725,122,424-byte allocation despite low live
+heap usage. This does not prove whether runtime mutation or instrumentation
+detection caused it. Version 8 retains this engine unchanged and compares a
+resident-library control with read-only preflight against the same preflight
+plus LSPlant initialization. Neither diagnostic stage loads the callback DEX,
+deoptimizes Java methods, hooks Application.attach, or looks up Cast classes.

@@ -24,6 +24,7 @@
 
 #include "ArtResolver.hpp"
 #include "ArtCompatibility.hpp"
+#include "DiagnosticMode.hpp"
 
 namespace {
 constexpr char kLogTag[] = "BeINCastRoot";
@@ -217,7 +218,7 @@ bool verify_release_runtime(JNIEnv *env) {
     return true;
 }
 
-bool initialize(JNIEnv *env, const std::vector<unsigned char> &dex) {
+bool initialize(JNIEnv *env, const std::vector<unsigned char> &dex, bein::DiagnosticMode mode) {
     LocalFrame frame(env);
     if (!frame || !g_art.open_loaded()) return false;
     // This profile's private class-status ABI was verified against one ARM64
@@ -232,7 +233,13 @@ bool initialize(JNIEnv *env, const std::vector<unsigned char> &dex) {
         LOGE("ART preflight failed; skipped before callback bridge or native hooks");
         return false;
     }
-    if (!load_bridge(env, dex)) return false;
+    if (mode == bein::DiagnosticMode::Loader) {
+        LOGI("diagnostic loader ready: read-only preflight complete; native module retained; no callback DEX or ART hooks");
+        return true;
+    }
+    // Engine-only intentionally omits even callback DEX loading. The same
+    // read-only preflight has already run for both isolated controls.
+    if (mode == bein::DiagnosticMode::Cast && !load_bridge(env, dex)) return false;
     lsplant::InitInfo info{
         .inline_hooker = inline_hook,
         .inline_unhooker = inline_unhook,
@@ -251,6 +258,10 @@ bool initialize(JNIEnv *env, const std::vector<unsigned char> &dex) {
     }
     g_initialized = true;
     LOGI("ART hook engine ready");
+    if (mode == bein::DiagnosticMode::Engine) {
+        LOGI("diagnostic engine ready: no callback DEX, deoptimization, Application.attach hook, or Cast lookup");
+        return true;
+    }
     jclass instrumentation = env->FindClass("android/app/Instrumentation");
     if (clear_exception(env, "Instrumentation") || !instrumentation) return false;
     if (!deoptimize(env, instrumentation, "newApplication",
@@ -273,7 +284,7 @@ public:
         env_->ReleaseStringUTFChars(args->nice_name, name);
         if (!selected_) { unload(); return; }
         const int sdk = android_get_device_api_level();
-        LOGI("selected %s (v7, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
+        LOGI("selected %s (v8, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
         if (sdk != 33) {
             LOGE("prototype supports Android 13/API33 only");
             selected_ = false;
@@ -281,17 +292,20 @@ public:
             return;
         }
         const int directory = api_->getModuleDir();
-        const bool read = directory >= 0 && read_dex(directory);
+        bool read = directory >= 0 && read_mode(directory);
+        if (read && mode_ == bein::DiagnosticMode::Cast) read = read_dex(directory);
         if (directory >= 0) close(directory);
         if (!read) { selected_ = false; unload(); }
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if (!selected_) return;
-        LOGI("app specialized; preparing Cast-only hooks");
-        const bool ready = initialize(env_, dex_);
+        LOGI("app specialized; diagnostic mode=%s", bein::diagnostic_mode_name(mode_));
+        const bool ready = initialize(env_, dex_, mode_);
         dex_.clear();
         dex_.shrink_to_fit();
-        LOGI("startup hook ready=%d", ready);
+        if (mode_ == bein::DiagnosticMode::Cast) LOGI("startup hook ready=%d", ready);
+        else LOGI("diagnostic stage ready=%d, mode=%s; Cast override disabled", ready,
+                  bein::diagnostic_mode_name(mode_));
         // LSPlant Init can leave native hooks even when it fails. Do not unload
         // after attempting it; those hooks may still refer to this library.
     }
@@ -300,8 +314,42 @@ private:
     zygisk::Api *api_ = nullptr;
     JNIEnv *env_ = nullptr;
     bool selected_ = false;
+    bein::DiagnosticMode mode_ = bein::DiagnosticMode::Engine;
     std::vector<unsigned char> dex_;
     void unload() { if (api_) api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY); }
+    bool read_mode(int directory) {
+        const int fd = openat(directory, "diagnostic_mode",
+                              O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+        if (fd < 0) { LOGE("diagnostic mode file unavailable; skipping setup"); return false; }
+        struct stat status{};
+        if (fstat(fd, &status) != 0 || !S_ISREG(status.st_mode) ||
+            status.st_size <= 0 || status.st_size > 16) {
+            close(fd);
+            LOGE("invalid diagnostic mode file; skipping setup");
+            return false;
+        }
+        char buffer[16];
+        const size_t size = static_cast<size_t>(status.st_size);
+        size_t offset = 0;
+        while (offset < size) {
+            const ssize_t count = ::read(fd, buffer + offset, size - offset);
+            if (count < 0 && errno == EINTR) continue;
+            if (count <= 0) { close(fd); LOGE("diagnostic mode read failed; skipping setup"); return false; }
+            offset += static_cast<size_t>(count);
+        }
+        // Refuse a concurrently extended configuration instead of accepting
+        // only its prefix. A mode change is applied by starting a fresh process.
+        char extra;
+        ssize_t count;
+        do { count = ::read(fd, &extra, 1); } while (count < 0 && errno == EINTR);
+        close(fd);
+        if (count != 0) { LOGE("diagnostic mode changed while reading; skipping setup"); return false; }
+        const auto mode = bein::parse_diagnostic_mode(std::string_view(buffer, size));
+        if (!mode) { LOGE("unknown diagnostic mode; skipping setup"); return false; }
+        mode_ = *mode;
+        LOGI("diagnostic mode selected: %s", bein::diagnostic_mode_name(mode_));
+        return true;
+    }
     bool read_dex(int directory) {
         const int fd = openat(directory, "hook.dex", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
         if (fd < 0) { LOGE("cannot open hook.dex (errno=%d)", errno); return false; }

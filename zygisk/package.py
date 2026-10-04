@@ -8,18 +8,20 @@ import zipfile
 
 stage, output = map(Path, sys.argv[1:])
 required = [
-    'module.prop', 'customize.sh', 'skip_mount', 'hook.dex',
+    'module.prop', 'customize.sh', 'skip_mount', 'diagnostic_mode', 'hook.dex',
     'META-INF/com/google/android/update-binary',
     'META-INF/com/google/android/updater-script',
     'zygisk/arm64-v8a.so', 'zygisk/armeabi-v7a.so',
     'README.md', 'THIRD_PARTY.md', 'LICENSE',
     'patches/README.md', 'patches/apply-lsplant-compat.py',
     'patches/lsplant-compat.patch', 'patches/lsplant-android13-init.json',
-    'native/ART-PROFILE.md', 'native/ArtCompatibility.hpp', 'native/DEPENDENCIES.md',
+    'native/ART-PROFILE.md', 'native/ArtCompatibility.hpp', 'native/DiagnosticMode.hpp', 'native/DEPENDENCIES.md',
 ]
 for item in required:
     if not (stage / item).is_file():
         raise SystemExit('Missing module payload: ' + item)
+if (stage / 'diagnostic_mode').read_bytes() != b'engine\n':
+    raise SystemExit('Diagnostic package must default to engine-only mode')
 for abi, expected_class, expected_machine in [('arm64-v8a', 2, 183), ('armeabi-v7a', 1, 40)]:
     library = (stage / 'zygisk' / (abi + '.so')).read_bytes()
     if library[:4] != b'\x7fELF' or library[4] != expected_class or library[5] != 1:

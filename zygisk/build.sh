@@ -49,6 +49,7 @@ python3 "$PROJECT_DIR/patches/apply-lsplant-compat.py" "$PROJECT_DIR/vendor/lspl
 bash "$PROJECT_DIR/tests/run-compat-tests.sh"
 bash "$PROJECT_DIR/tests/run-art-resolver-tests.sh"
 bash "$PROJECT_DIR/tests/run-art-compatibility-tests.sh"
+bash "$PROJECT_DIR/tests/run-diagnostic-mode-tests.sh"
 bash "$PROJECT_DIR/tests/run-host-tests.sh"
 javac --release 8 -cp "$ANDROID_JAR" -d "$PROJECT_DIR/build/classes" \
     "$PROJECT_DIR/java/com/soudi/beincastroot/HookBridge.java"
@@ -68,6 +69,7 @@ cp -a "$PROJECT_DIR/patches" "$STAGE_DIR/patches"
 mkdir -p "$STAGE_DIR/native"
 cp "$PROJECT_DIR/native/ART-PROFILE.md" "$STAGE_DIR/native/ART-PROFILE.md"
 cp "$PROJECT_DIR/native/ArtCompatibility.hpp" "$STAGE_DIR/native/ArtCompatibility.hpp"
+cp "$PROJECT_DIR/native/DiagnosticMode.hpp" "$STAGE_DIR/native/DiagnosticMode.hpp"
 cp "$PROJECT_DIR/native/DEPENDENCIES.md" "$STAGE_DIR/native/DEPENDENCIES.md"
 python3 - "$PROJECT_DIR/vendor" "$STAGE_DIR/licenses" <<'PY'
 from pathlib import Path
@@ -111,4 +113,4 @@ PY
 done
 
 mkdir -p "$PROJECT_DIR/dist"
-python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v7-prototype.zip"
+python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v8-diagnostic.zip"

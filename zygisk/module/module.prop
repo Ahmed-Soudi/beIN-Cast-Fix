@@ -1,6 +1,6 @@
 id=bein_cast_root
 name=beIN Cast Root Prototype
-version=v7-native-prototype
-versionCode=7
+version=v8-startup-diagnostic
+versionCode=8
 author=Ahmed Soudi
-description=Experimental beIN CONNECT MENA Cast option hook through Zygisk. Requires a working Zygisk implementation. Device validation pending.
+description=Startup diagnostic for beIN CONNECT MENA using the reviewed v7 engine. Defaults to engine-only, without callback DEX or Java hooks. Requires working Zygisk.
