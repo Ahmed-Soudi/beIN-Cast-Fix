@@ -163,7 +163,11 @@ private:
     template <typename... Args> void log(bool error, const char *format, Args... args) const {
         if (!logger_) return;
         char message[384];
-        snprintf(message, sizeof(message), format, args...);
+        if constexpr (sizeof...(Args) == 0) {
+            snprintf(message, sizeof(message), "%s", format);
+        } else {
+            snprintf(message, sizeof(message), format, args...);
+        }
         logger_(error, message);
     }
     bool fail(const char *reason) const {
