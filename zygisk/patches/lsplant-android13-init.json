@@ -27,6 +27,56 @@
           "after": "    if (original) {\n        void *backup = handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace));\n        if (!backup) return false;\n        if constexpr (is_instance_v<decltype(arg.backup), MemberFunction>) {\n            arg.backup = reinterpret_cast<typename decltype(arg.backup)::FunType>(backup);\n        } else {\n            arg.backup = reinterpret_cast<decltype(arg.backup)>(backup);\n        }\n        return true;\n"
         }
       ]
+    },
+    {
+      "path": "lsplant/src/main/jni/art/runtime/jit/jit_code_cache.hpp",
+      "before_sha256": "b79884ac69aa7de6b21eca8649d5b13190f0f80ee25cfb121707102acdf61808",
+      "after_sha256": "d5999c1b67cb32f451e27c39ec8851ccebfd1fed42561f65ffc22e8382135e80",
+      "replacements": [
+        {
+          "before": "    CREATE_MEM_HOOK_STUB_ENTRY(\"_ZN3art3jit12JitCodeCache19GarbageCollectCacheEPNS_6ThreadE\", void,\n                               GarbageCollectCache, (JitCodeCache * thiz, Thread *self), {\n                                   auto movements = GetJitMovements();\n                                   LOGD(\"Before jit cache gc, moving %zu hooked methods\",\n                                        movements.size());\n                                   for (auto [target, backup] : movements) {\n                                       MoveObsoleteMethod(thiz, target, backup);\n                                   }\n                                   backup(thiz, self);\n                               });\n",
+          "after": "    // Upstream 0d9faca3 preserves this migration before either supported\n    // collection entrypoint; collection is still required for hooked methods.\n    void MoveObsoleteMethods() {\n        auto movements = GetJitMovements();\n        LOGD(\"Before jit cache collection, moving %zu hooked methods\", movements.size());\n        for (auto [target, backup] : movements) {\n            MoveObsoleteMethod(this, target, backup);\n        }\n    }\n\n    CREATE_MEM_HOOK_STUB_ENTRY(\"_ZN3art3jit12JitCodeCache19GarbageCollectCacheEPNS_6ThreadE\", void,\n                               GarbageCollectCache, (JitCodeCache * thiz, Thread *self), {\n                                   thiz->MoveObsoleteMethods();\n                                   backup(thiz, self);\n                               });\n\n    CREATE_MEM_HOOK_STUB_ENTRY(\"_ZN3art3jit12JitCodeCache12DoCollectionEPNS_6ThreadE\", void,\n                               DoCollection, (JitCodeCache * thiz, Thread *self), {\n                                   thiz->MoveObsoleteMethods();\n                                   backup(thiz, self);\n                               });\n"
+        },
+        {
+          "before": "        if (sdk_int >= __ANDROID_API_N__) [[likely]] {\n            if (!HookSyms(handler, GarbageCollectCache)) [[unlikely]] {\n                return false;\n            }\n        }\n",
+          "after": "        if (sdk_int >= __ANDROID_API_N__) [[likely]] {\n            const auto hook_collection = [&](auto &hook) {\n                if (!HookSym(handler, hook)) return false;\n                LOGI(\"JitCodeCache collection hook installed: %.*s\",\n                     static_cast<int>(hook.sym.size()), hook.sym.data());\n                return true;\n            };\n            if (!hook_collection(GarbageCollectCache) && !hook_collection(DoCollection)) {\n                LOGE(\"No JIT collection hook installed (GarbageCollectCache or DoCollection)\");\n                return false;\n            }\n        }\n"
+        }
+      ]
+    },
+    {
+      "path": "lsplant/src/main/jni/art/runtime/instrumentation.hpp",
+      "before_sha256": "2937d1d0be199d3690d8405920ef96d4e7ffedf5e7900314fb6407301ebab9e3",
+      "after_sha256": "2f0a886454c28e9167a749700eaa90904511df7b31b36ba37e38bd2a01a2b118",
+      "replacements": [
+        {
+          "before": "public:\n    static bool Init(JNIEnv *env, const HookHandler &handler) {\n        if (!IsJavaDebuggable(env)) [[likely]] {\n            return true;\n        }\n        int sdk_int = GetAndroidApiLevel();\n",
+          "after": "    // The inspected build-ID-gated SDK33 ARM64 profile calls this code\n    // updater during direct-visible class initialization even in release apps.\n    // The older InitializeMethodsCode debug-only hook cannot protect that path.\n    CREATE_MEM_HOOK_STUB_ENTRY(\n        \"_ZN3art15instrumentation15Instrumentation21UpdateMethodsCodeImplEPNS_9ArtMethodEPKv\", void,\n        UpdateMethodsCodeImpl,\n        (Instrumentation * thiz, ArtMethod *art_method, const void *quick_code), {\n            if (IsDeoptimized(art_method)) {\n                LOGV(\"skip update entrypoint on deoptimized method %s\",\n                     art_method->PrettyMethod(true).c_str());\n                return;\n            }\n            backup(thiz, MaybeUseBackupMethod(art_method, quick_code), quick_code);\n        });\n\npublic:\n    static bool Init(JNIEnv *env, const HookHandler &handler) {\n        int sdk_int = GetAndroidApiLevel();\n        // This local compatibility path requires the module's exact ART\n        // build-ID/profile gate. It is not a generic SDK33 engine fix.\n        if (sdk_int == 33) {\n            if (!HookSym(handler, UpdateMethodsCodeImpl)) {\n                LOGE(\"Required release UpdateMethodsCodeImpl hook was not installed\");\n                return false;\n            }\n            LOGI(\"Instrumentation release hook installed: %.*s\",\n                 static_cast<int>(UpdateMethodsCodeImpl.sym.size()),\n                 UpdateMethodsCodeImpl.sym.data());\n        }\n        if (!IsJavaDebuggable(env)) [[likely]] {\n            return true;\n        }\n"
+        }
+      ]
+    },
+    {
+      "path": "lsplant/src/main/jni/art/runtime/art_method.hpp",
+      "before_sha256": "04baaeb2a3b86a732d0d652dbf550638dc1eedb30ca9f6e27c9cb447f29dba5b",
+      "after_sha256": "dbec0a9a4ec85ff0acf17bd83a07af6b8236d52ed2b316c43f67538679739402",
+      "replacements": [
+        {
+          "before": "        art_method_size = reinterpret_cast<uintptr_t>(second) - reinterpret_cast<uintptr_t>(first);\n        LOGD(\"ArtMethod size: %zu\", art_method_size);\n\n",
+          "after": "        art_method_size = reinterpret_cast<uintptr_t>(second) - reinterpret_cast<uintptr_t>(first);\n        LOGD(\"ArtMethod size: %zu\", art_method_size);\n\n        // The module's exact build-ID-gated SDK33 ARM64 profile was inspected\n        // with 32-byte ArtMethods. Refuse an unexpected measured layout before\n        // subtracting pointer offsets or scanning fields, and before any hook.\n        if (sdk_int == 33 && kPointerSize == 8 && art_method_size != 32) {\n            LOGE(\"Unsupported profile ArtMethod size: %zu (expected 32)\", art_method_size);\n            return false;\n        }\n\n"
+        }
+      ]
     }
-  ]
+  ],
+  "upstream_references": [
+    "https://github.com/LSPosed/LSPlant/commit/0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081",
+    "https://github.com/LSPosed/LSPlant/commit/0d9faca38da7023fa39fc93383051a04458a3518"
+  ],
+  "local_profile": {
+    "android_api": 33,
+    "pointer_size": 8,
+    "gnu_build_id": "a47994c420371ffbd05d16fc9a15ac9f",
+    "java_debuggable": false,
+    "measured_art_method_size": 32,
+    "required_release_code_update": "_ZN3art15instrumentation15Instrumentation21UpdateMethodsCodeImplEPNS_9ArtMethodEPKv",
+    "notes": "Local profiled checks require the module build-ID gate; they are not generic SDK33 engine fixes. Class status 15 is preserved."
+  }
 }

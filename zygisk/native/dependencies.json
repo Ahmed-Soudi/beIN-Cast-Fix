@@ -6,9 +6,14 @@
     "recursive_submodules": true,
     "license": "LGPL-3.0",
     "compatibility_patch": "patches/apply-lsplant-compat.py",
-    "compatibility_reference": "0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081",
     "dex_builder_commit": "b5a00f2ea94ad4c3b92054fd53896dbb429298f9",
-    "parallel_hashmap_commit": "c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2"
+    "parallel_hashmap_commit": "c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2",
+    "compatibility_references": [
+      "0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081",
+      "0d9faca38da7023fa39fc93383051a04458a3518"
+    ],
+    "verified_art_build_id": "a47994c420371ffbd05d16fc9a15ac9f",
+    "verified_art_architecture": "AArch64"
   },
   "dobby": {
     "repository": "https://github.com/LSPosed/Dobby.git",

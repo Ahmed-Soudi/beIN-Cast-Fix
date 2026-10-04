@@ -23,6 +23,7 @@
 #include <zygisk.hpp>
 
 #include "ArtResolver.hpp"
+#include "ArtCompatibility.hpp"
 
 namespace {
 constexpr char kLogTag[] = "BeINCastRoot";
@@ -197,9 +198,41 @@ bool load_bridge(JNIEnv *env, const std::vector<unsigned char> &dex) {
     return true;
 }
 
+bool verify_release_runtime(JNIEnv *env) {
+    jclass runtime_class = env->FindClass("dalvik/system/VMRuntime");
+    if (clear_exception(env, "VMRuntime preflight class") || !runtime_class) return false;
+    jmethodID get_runtime = env->GetStaticMethodID(runtime_class, "getRuntime", "()Ldalvik/system/VMRuntime;");
+    if (clear_exception(env, "VMRuntime preflight getRuntime") || !get_runtime) return false;
+    jobject runtime = env->CallStaticObjectMethod(runtime_class, get_runtime);
+    if (clear_exception(env, "VMRuntime preflight instance") || !runtime) return false;
+    jmethodID is_debuggable = env->GetMethodID(runtime_class, "isJavaDebuggable", "()Z");
+    if (clear_exception(env, "VMRuntime preflight isJavaDebuggable") || !is_debuggable) return false;
+    const jboolean debuggable = env->CallBooleanMethod(runtime, is_debuggable);
+    if (clear_exception(env, "VMRuntime preflight debugging state")) return false;
+    if (debuggable == JNI_TRUE) {
+        LOGE("ART preflight: Java-debuggable runtime unsupported; skipped before hooks");
+        return false;
+    }
+    LOGI("ART preflight: release Java runtime confirmed");
+    return true;
+}
+
 bool initialize(JNIEnv *env, const std::vector<unsigned char> &dex) {
     LocalFrame frame(env);
-    if (!frame || !load_bridge(env, dex) || !g_art.open_loaded()) return false;
+    if (!frame || !g_art.open_loaded()) return false;
+    // This profile's private class-status ABI was verified against one ARM64
+    // runtime. OS API level alone does not identify an updatable ART build.
+    if (!bein::profile_matches(g_art.build_id(), sizeof(void *))) {
+        LOGE("ART preflight: unsupported build ID %s (%zu-bit); skipped before hooks",
+             g_art.build_id().empty() ? "<absent>" : g_art.build_id().c_str(), sizeof(void *) * 8);
+        return false;
+    }
+    if (!verify_release_runtime(env) ||
+        !bein::preflight_api33_release(g_art, art_resolver_log)) {
+        LOGE("ART preflight failed; skipped before callback bridge or native hooks");
+        return false;
+    }
+    if (!load_bridge(env, dex)) return false;
     lsplant::InitInfo info{
         .inline_hooker = inline_hook,
         .inline_unhooker = inline_unhook,
@@ -240,7 +273,7 @@ public:
         env_->ReleaseStringUTFChars(args->nice_name, name);
         if (!selected_) { unload(); return; }
         const int sdk = android_get_device_api_level();
-        LOGI("selected %s (v6, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
+        LOGI("selected %s (v7, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
         if (sdk != 33) {
             LOGE("prototype supports Android 13/API33 only");
             selected_ = false;

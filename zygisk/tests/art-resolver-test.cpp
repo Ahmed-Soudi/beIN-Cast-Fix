@@ -19,7 +19,7 @@ bool address(ArtResolver &resolver, const char *name, bool prefix, uintptr_t exp
 }
 
 int main(int argc, char **argv) {
-    if (argc != 3) return 2;
+    if (argc != 3 && argc != 4) return 2;
     std::ifstream file(argv[1], std::ios::binary);
     if (!file) return 2;
     std::vector<unsigned char> data((std::istreambuf_iterator<char>(file)), {});
@@ -32,6 +32,15 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (!ready) return 1;
+    const std::string expected_build_id = argc == 4 ? argv[3] : "";
+    if (resolver.build_id() != expected_build_id) {
+        std::cerr << "build ID mismatch: expected=" << expected_build_id
+                  << " actual=" << resolver.build_id() << '\n';
+        return 1;
+    }
+    // A supplied local device ELF can verify identity without assuming that
+    // its production symbols resemble the generated lookup fixtures.
+    if (mode == "identity") return 0;
     if (!address(resolver, "Exported", false, kBias + 0x2100)) return 1;
     if (mode == "stripped") {
         return resolver.find(kShorty, true) == nullptr ? 0 : 1;

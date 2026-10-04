@@ -8,3 +8,6 @@ python3 "$PROJECT_DIR/tests/test-compat-patch.py" "$LSPLANT_DIR" "$TEST_BUILD_DI
 g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$TEST_BUILD_DIR" \
     "$PROJECT_DIR/tests/hook-helper-backend-test.cpp" -o "$TEST_BUILD_DIR/hook-helper-backend-test"
 "$TEST_BUILD_DIR/hook-helper-backend-test"
+g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$TEST_BUILD_DIR" \
+    "$PROJECT_DIR/tests/art-hook-callback-test.cpp" -o "$TEST_BUILD_DIR/art-hook-callback-test"
+"$TEST_BUILD_DIR/art-hook-callback-test"

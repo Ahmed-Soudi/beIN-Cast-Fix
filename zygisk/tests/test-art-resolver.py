@@ -8,8 +8,10 @@ import sys
 EHDR = struct.Struct("<16sHHIQQQIHHHHHH")
 SHDR = struct.Struct("<IIQQQQIIQQ")
 SYM = struct.Struct("<IBBHQQ")
+NHDR = struct.Struct("<III")
 SHORTY = "_ZN3artL15GetMethodShortyEP7_JNIEnvP10_jmethodID"
 EXACT_SHORTY = "_ZN3art15GetMethodShortyEP7_JNIEnvP10_jmethodID"
+BUILD_ID = bytes.fromhex("a47994c420371ffbd05d16fc9a15ac9f")
 
 
 def elf(sections):
@@ -23,9 +25,11 @@ def elf(sections):
     data = bytearray(EHDR.size)
     headers = [(0,) * 10]
     for name_offset, (_name, kind, payload, link, entry_size) in zip(offsets, sections):
+        alignment = 4 if kind == 7 else 1
+        data.extend(bytes((-len(data)) % alignment))
         offset = len(data)
         data.extend(payload)
-        headers.append((name_offset, kind, 0, 0, offset, len(payload), link, 0, 1, entry_size))
+        headers.append((name_offset, kind, 0, 0, offset, len(payload), link, 0, alignment, entry_size))
     shoff = len(data)
     data.extend(b"".join(SHDR.pack(*header) for header in headers))
     ident = b"\x7fELF\x02\x01\x01" + bytes(9)
@@ -63,10 +67,17 @@ def mini_elf():
                 (".symtab", 2, symbols, 2, SYM.size)])
 
 
-def outer(debug=None):
+def note(owner=b"GNU\0", descriptor=BUILD_ID, kind=3):
+    return (NHDR.pack(len(owner), len(descriptor), kind) + owner +
+            bytes((-len(owner)) % 4) + descriptor + bytes((-len(descriptor)) % 4))
+
+
+def outer(debug=None, notes=()):
     strings, symbols = symbol_data([("Exported", 0x2100, 16, 1)])
     sections = [(".shstrtab", 3, b"", 0, 0), (".dynstr", 3, strings, 0, 0),
                 (".dynsym", 11, symbols, 2, SYM.size)]
+    for index, payload in enumerate(notes):
+        sections.append((".note.test" + str(index), 7, payload, 0, 0))
     if debug is not None:
         sections.append((".gnu_debugdata", 1, debug, 0, 0))
     return elf(sections)
@@ -122,18 +133,57 @@ def run():
         ("outer-debug-size-overflow", patch_section(valid, 4, 5, (1 << 64) - 1), "reject"),
         ("outer-name-offset-overflow", patch_section(valid, 4, 0, 0xffffffff), "reject"),
     ]
+    valid_note = outer(notes=[note()])
+    note_offset = SHDR.unpack_from(valid_note, EHDR.unpack_from(valid_note)[6] + 4 * SHDR.size)[4]
+    note_cases = [
+        ("build-id", valid_note, "stripped", BUILD_ID.hex()),
+        ("build-id-unaligned-descriptor-size", outer(notes=[note(descriptor=b"\x01\x80\xff")]),
+         "stripped", "0180ff"),
+        ("build-id-other-note", outer(notes=[note(owner=b"Android\0", descriptor=b"\x25\0\0\0", kind=1),
+                                               note()]), "stripped", BUILD_ID.hex()),
+        ("build-id-duplicate-identical", outer(notes=[note(), note()]), "stripped", BUILD_ID.hex()),
+        ("build-id-duplicate-in-section", outer(notes=[note() + note()]), "stripped", BUILD_ID.hex()),
+        ("build-id-duplicate-conflicting", outer(notes=[note(), note(descriptor=bytes(16))]), "reject", ""),
+        ("build-id-conflicting-in-section", outer(notes=[note() + note(descriptor=bytes(16))]), "reject", ""),
+        ("note-unknown-owner", outer(notes=[note(owner=b"XYZ\0")]), "stripped", ""),
+        ("note-unknown-type", outer(notes=[note(kind=1)]), "stripped", ""),
+        ("note-empty-section", outer(notes=[b""]), "stripped", ""),
+        ("note-empty-build-id", outer(notes=[note(descriptor=b"")]), "reject", ""),
+        ("note-truncated-header", outer(notes=[bytes(8)]), "reject", ""),
+        ("note-truncated-name", outer(notes=[NHDR.pack(8, 0, 1) + b"GNU\0"]), "reject", ""),
+        ("note-name-size-overflow", outer(notes=[NHDR.pack(0xffffffff, 0, 1) + bytes(4)]), "reject", ""),
+        ("note-descriptor-size-overflow", outer(notes=[NHDR.pack(4, 0xffffffff, 3) + b"GNU\0"]), "reject", ""),
+        ("note-truncated-descriptor", outer(notes=[note()[:-4]]), "reject", ""),
+        ("note-truncated-name-padding", outer(notes=[NHDR.pack(5, 0, 1) + bytes(5)]), "reject", ""),
+        ("note-truncated-descriptor-padding", outer(notes=[NHDR.pack(4, 3, 3) + b"GNU\0" + bytes(3)]),
+         "reject", ""),
+        ("note-trailing-header-fragment", outer(notes=[note() + bytes(4)]), "reject", ""),
+        ("note-offset-overflow", patch_section(valid_note, 4, 4, (1 << 64) - 1), "reject", ""),
+        ("note-size-overflow", patch_section(valid_note, 4, 5, (1 << 64) - 1), "reject", ""),
+        ("note-offset-misaligned", patch_section(valid_note, 4, 4, note_offset + 1), "reject", ""),
+        ("note-invalid-alignment", patch_section(valid_note, 4, 8, 3), "reject", ""),
+    ]
+    # An inner GNU build ID must never identify the loaded original ELF.
+    inner_note = elf([(".shstrtab", 3, b"", 0, 0),
+                      (".note.gnu.build-id", 7, note(), 0, 0)])
+    cases.append(("inner-build-id-ignored", outer(lzma.compress(inner_note)), "stripped"))
+    note_cases.append(("outer-build-id-with-debug", outer(compressed, notes=[note()]), "debug", BUILD_ID.hex()))
     # A highly compressible oversized output proves the 64 MiB allocation cap.
     oversized = lzma.compress(bytes(64 * 1024 * 1024 + 1), preset=0)
     cases.append(("xz-output-limit", outer(oversized), "reject"))
-    for name, data, expected in cases:
+    all_cases = [(*case, "") for case in cases] + note_cases
+    for name, data, expected, expected_build_id in all_cases:
         path = directory / (name + ".so")
         path.write_bytes(data)
-        result = subprocess.run([binary, str(path), expected], capture_output=True, text=True)
+        result = subprocess.run([binary, str(path), expected, expected_build_id], capture_output=True, text=True)
         if result.returncode:
             raise SystemExit(name + " failed:\n" + result.stderr)
         if expected == "debug" and "GetMethodShorty resolved from .gnu_debugdata/.symtab" not in result.stderr:
             raise SystemExit(name + " did not log the mini-ELF symbol source")
-    print("ART resolver fixtures passed:", len(cases))
+        if expected != "reject" and ("original ELF path=" not in result.stderr or
+                                     "GNU build ID=" + (expected_build_id or "<absent>") not in result.stderr):
+            raise SystemExit(name + " did not log original ELF identity")
+    print("ART resolver fixtures passed:", len(all_cases))
 
 
 if __name__ == "__main__":

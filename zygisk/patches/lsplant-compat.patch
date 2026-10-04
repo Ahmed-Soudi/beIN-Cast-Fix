@@ -73,3 +73,112 @@
          }
          return true;
      } else {
+--- a/lsplant/src/main/jni/art/runtime/jit/jit_code_cache.hpp
++++ b/lsplant/src/main/jni/art/runtime/jit/jit_code_cache.hpp
+@@ -15,14 +15,25 @@
+         }
+     }
+ 
++    // Upstream 0d9faca3 preserves this migration before either supported
++    // collection entrypoint; collection is still required for hooked methods.
++    void MoveObsoleteMethods() {
++        auto movements = GetJitMovements();
++        LOGD("Before jit cache collection, moving %zu hooked methods", movements.size());
++        for (auto [target, backup] : movements) {
++            MoveObsoleteMethod(this, target, backup);
++        }
++    }
++
+     CREATE_MEM_HOOK_STUB_ENTRY("_ZN3art3jit12JitCodeCache19GarbageCollectCacheEPNS_6ThreadE", void,
+                                GarbageCollectCache, (JitCodeCache * thiz, Thread *self), {
+-                                   auto movements = GetJitMovements();
+-                                   LOGD("Before jit cache gc, moving %zu hooked methods",
+-                                        movements.size());
+-                                   for (auto [target, backup] : movements) {
+-                                       MoveObsoleteMethod(thiz, target, backup);
+-                                   }
++                                   thiz->MoveObsoleteMethods();
++                                   backup(thiz, self);
++                               });
++
++    CREATE_MEM_HOOK_STUB_ENTRY("_ZN3art3jit12JitCodeCache12DoCollectionEPNS_6ThreadE", void,
++                               DoCollection, (JitCodeCache * thiz, Thread *self), {
++                                   thiz->MoveObsoleteMethods();
+                                    backup(thiz, self);
+                                });
+ 
+@@ -38,7 +49,14 @@
+             }
+         }
+         if (sdk_int >= __ANDROID_API_N__) [[likely]] {
+-            if (!HookSyms(handler, GarbageCollectCache)) [[unlikely]] {
++            const auto hook_collection = [&](auto &hook) {
++                if (!HookSym(handler, hook)) return false;
++                LOGI("JitCodeCache collection hook installed: %.*s",
++                     static_cast<int>(hook.sym.size()), hook.sym.data());
++                return true;
++            };
++            if (!hook_collection(GarbageCollectCache) && !hook_collection(DoCollection)) {
++                LOGE("No JIT collection hook installed (GarbageCollectCache or DoCollection)");
+                 return false;
+             }
+         }
+--- a/lsplant/src/main/jni/art/runtime/instrumentation.hpp
++++ b/lsplant/src/main/jni/art/runtime/instrumentation.hpp
+@@ -40,12 +40,38 @@
+             backup(thiz, MaybeUseBackupMethod(art_method, quick_code), quick_code);
+         });
+ 
++    // The inspected build-ID-gated SDK33 ARM64 profile calls this code
++    // updater during direct-visible class initialization even in release apps.
++    // The older InitializeMethodsCode debug-only hook cannot protect that path.
++    CREATE_MEM_HOOK_STUB_ENTRY(
++        "_ZN3art15instrumentation15Instrumentation21UpdateMethodsCodeImplEPNS_9ArtMethodEPKv", void,
++        UpdateMethodsCodeImpl,
++        (Instrumentation * thiz, ArtMethod *art_method, const void *quick_code), {
++            if (IsDeoptimized(art_method)) {
++                LOGV("skip update entrypoint on deoptimized method %s",
++                     art_method->PrettyMethod(true).c_str());
++                return;
++            }
++            backup(thiz, MaybeUseBackupMethod(art_method, quick_code), quick_code);
++        });
++
+ public:
+     static bool Init(JNIEnv *env, const HookHandler &handler) {
++        int sdk_int = GetAndroidApiLevel();
++        // This local compatibility path requires the module's exact ART
++        // build-ID/profile gate. It is not a generic SDK33 engine fix.
++        if (sdk_int == 33) {
++            if (!HookSym(handler, UpdateMethodsCodeImpl)) {
++                LOGE("Required release UpdateMethodsCodeImpl hook was not installed");
++                return false;
++            }
++            LOGI("Instrumentation release hook installed: %.*s",
++                 static_cast<int>(UpdateMethodsCodeImpl.sym.size()),
++                 UpdateMethodsCodeImpl.sym.data());
++        }
+         if (!IsJavaDebuggable(env)) [[likely]] {
+             return true;
+         }
+-        int sdk_int = GetAndroidApiLevel();
+         if (sdk_int >= __ANDROID_API_P__) [[likely]] {
+             if (!HookSyms(handler, InitializeMethodsCode,
+                           UpdateMethodsCodeToInterpreterEntryPoint)) {
+--- a/lsplant/src/main/jni/art/runtime/art_method.hpp
++++ b/lsplant/src/main/jni/art/runtime/art_method.hpp
+@@ -184,6 +184,14 @@
+         auto *second = FromReflectedMethod(env, second_ctor.get());
+         art_method_size = reinterpret_cast<uintptr_t>(second) - reinterpret_cast<uintptr_t>(first);
+         LOGD("ArtMethod size: %zu", art_method_size);
++
++        // The module's exact build-ID-gated SDK33 ARM64 profile was inspected
++        // with 32-byte ArtMethods. Refuse an unexpected measured layout before
++        // subtracting pointer offsets or scanning fields, and before any hook.
++        if (sdk_int == 33 && kPointerSize == 8 && art_method_size != 32) {
++            LOGE("Unsupported profile ArtMethod size: %zu (expected 32)", art_method_size);
++            return false;
++        }
+ 
+         if (RoundUpTo(4 * 9, kPointerSize) + kPointerSize * 3 < art_method_size) [[unlikely]] {
+             if (sdk_int >= __ANDROID_API_M__) {

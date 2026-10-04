@@ -1,6 +1,6 @@
 id=bein_cast_root
 name=beIN Cast Root Prototype
-version=v6-native-prototype
-versionCode=6
+version=v7-native-prototype
+versionCode=7
 author=Ahmed Soudi
 description=Experimental beIN CONNECT MENA Cast option hook through Zygisk. Requires a working Zygisk implementation. Device validation pending.

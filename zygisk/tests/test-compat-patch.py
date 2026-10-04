@@ -78,6 +78,54 @@ template <template <typename...> class T, typename... Args>
 inline constexpr bool is_instance_v<T<Args...>, T> = true;
 }
 ''')
+    # Preserve the actual patched callbacks and initialization paths while
+    # supplying only their ART/JNI interfaces as host fakes. The host never
+    # executes the private ARM binary or infers ABI from these tests.
+    for state, entry in zip(states, manifest["files"]):
+        if entry["path"].endswith("/instrumentation.hpp"):
+            header = state.decode().replace('#include "art_method.hpp"', '')
+            header = header.replace('#include "common.hpp"', '#include "compat-art-stubs.hpp"')
+            (build / "instrumentation.hpp").write_text(header)
+        elif entry["path"].endswith("/jit_code_cache.hpp"):
+            header = state.decode().replace('#include "common.hpp"', '#include "compat-art-stubs.hpp"')
+            (build / "jit_code_cache.hpp").write_text(header)
+    (build / "compat-art-stubs.hpp").write_text('''#pragma once
+#include "hook_helper.hpp"
+#include <vector>
+#define LOGD(...) ((void)0)
+#define LOGV(...) ((void)0)
+#define LOGI(...) ((void)0)
+#define LOGE(...) ((void)0)
+#define __ANDROID_API_N__ 24
+#define __ANDROID_API_O__ 26
+#define __ANDROID_API_P__ 28
+struct JNIEnv {};
+namespace lsplant::art {
+class ArtMethod {
+public:
+    void *entry = nullptr;
+    void *data = nullptr;
+    void *GetEntryPoint() { return entry; }
+    std::string PrettyMethod(bool) { return "host fake"; }
+    void *GetData() { return data; }
+    void SetData(void *value) { data = value; }
+};
+class Thread {};
+inline ArtMethod *hook_target = nullptr;
+inline ArtMethod *hook_backup = nullptr;
+inline ArtMethod *deoptimized = nullptr;
+inline int test_sdk = 33;
+inline bool test_debuggable = false;
+inline std::vector<std::pair<ArtMethod *, ArtMethod *>> movements;
+inline ArtMethod *IsHooked(ArtMethod *method) {
+    return method == hook_target ? hook_backup : nullptr;
+}
+inline bool IsDeoptimized(ArtMethod *method) { return method == deoptimized; }
+inline int GetAndroidApiLevel() { return test_sdk; }
+inline bool IsJavaDebuggable(JNIEnv *) { return test_debuggable; }
+inline auto GetJitMovements() { return movements; }
+}
+''')
     print("LSPlant checked patch application, idempotence, and revision rejection passed")
 
 

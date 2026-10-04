@@ -15,6 +15,7 @@ required = [
     'README.md', 'THIRD_PARTY.md', 'LICENSE',
     'patches/README.md', 'patches/apply-lsplant-compat.py',
     'patches/lsplant-compat.patch', 'patches/lsplant-android13-init.json',
+    'native/ART-PROFILE.md', 'native/ArtCompatibility.hpp', 'native/DEPENDENCIES.md',
 ]
 for item in required:
     if not (stage / item).is_file():
