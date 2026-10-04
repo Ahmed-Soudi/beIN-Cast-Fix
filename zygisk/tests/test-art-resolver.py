@@ -149,6 +149,7 @@ def run():
         ("note-unknown-type", outer(notes=[note(kind=1)]), "stripped", ""),
         ("note-empty-section", outer(notes=[b""]), "stripped", ""),
         ("note-empty-build-id", outer(notes=[note(descriptor=b"")]), "reject", ""),
+        ("note-oversized-build-id", outer(notes=[note(descriptor=bytes(65))]), "reject", ""),
         ("note-truncated-header", outer(notes=[bytes(8)]), "reject", ""),
         ("note-truncated-name", outer(notes=[NHDR.pack(8, 0, 1) + b"GNU\0"]), "reject", ""),
         ("note-name-size-overflow", outer(notes=[NHDR.pack(0xffffffff, 0, 1) + bytes(4)]), "reject", ""),

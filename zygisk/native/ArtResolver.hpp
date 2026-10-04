@@ -281,7 +281,9 @@ private:
             if (note.n_type != NT_GNU_BUILD_ID || note.n_namesz != 4 ||
                 memcmp(image.bytes + begin + name_offset, "GNU\0", 4) != 0)
                 continue;
-            if (note.n_descsz == 0 || note.n_descsz > std::numeric_limits<size_t>::max() / 2)
+            // GNU identifiers are small hashes. Bound hex-string allocation
+            // consistently on ARM32/ARM64 before doubling this length.
+            if (note.n_descsz == 0 || note.n_descsz > 64)
                 return fail("invalid GNU build ID descriptor size");
             static constexpr char hexadecimal[] = "0123456789abcdef";
             std::string candidate;
