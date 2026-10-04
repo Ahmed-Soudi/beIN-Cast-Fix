@@ -45,6 +45,8 @@ fetch_repo https://github.com/LSPosed/Dobby.git 6813ca76ddeafcaece525bf8c6cde7ff
 fetch_repo https://github.com/topjohnwu/zygisk-module-sample.git 7bb941ac8edfcffd1d23761e401c45ca95409dc1 "$PROJECT_DIR/vendor/zygisk"
 fetch_repo https://github.com/tukaani-project/xz-embedded.git ae63ae3a36ed01724674e8f3d750dc47bf125410 "$PROJECT_DIR/vendor/xz-embedded"
 
+python3 "$PROJECT_DIR/patches/apply-lsplant-compat.py" "$PROJECT_DIR/vendor/lsplant"
+bash "$PROJECT_DIR/tests/run-compat-tests.sh"
 bash "$PROJECT_DIR/tests/run-art-resolver-tests.sh"
 bash "$PROJECT_DIR/tests/run-host-tests.sh"
 javac --release 8 -cp "$ANDROID_JAR" -d "$PROJECT_DIR/build/classes" \
@@ -61,6 +63,7 @@ cp "$PROJECT_DIR/build/dex/classes.dex" "$STAGE_DIR/hook.dex"
 cp "$PROJECT_DIR/README.md" "$STAGE_DIR/README.md"
 cp "$PROJECT_DIR/THIRD_PARTY.md" "$STAGE_DIR/THIRD_PARTY.md"
 cp "$PROJECT_DIR/LICENSE" "$STAGE_DIR/LICENSE"
+cp -a "$PROJECT_DIR/patches" "$STAGE_DIR/patches"
 python3 - "$PROJECT_DIR/vendor" "$STAGE_DIR/licenses" <<'PY'
 from pathlib import Path
 import sys
@@ -103,4 +106,4 @@ PY
 done
 
 mkdir -p "$PROJECT_DIR/dist"
-python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v5-prototype.zip"
+python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v6-prototype.zip"

@@ -1,0 +1,32 @@
+{
+  "revision": "a612522188d903a523fc6760cd4ee257c3224d8c",
+  "upstream_reference": "https://github.com/LSPosed/LSPlant/commit/0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081",
+  "files": [
+    {
+      "path": "lsplant/src/main/jni/art/runtime/class_linker.hpp",
+      "before_sha256": "3b9c94fb01c18d1b37b6e9906e23556a9d50fd2a5cdac456a83652df5c69ffee",
+      "after_sha256": "d56154e24ede2a0354eb9ae7a5477c071badfe8a73ba6c49d3924915f74df07c",
+      "replacements": [
+        {
+          "before": "        if (!HookSyms(handler, FixupStaticTrampolinesWithThread, FixupStaticTrampolines,\n                      FixupStaticTrampolinesRaw)) {\n            return false;\n        }\n",
+          "after": "        // Some ART builds inline FixupStaticTrampolines. Preserve class-init\n        // coverage by requiring an installed visibility hook before proceeding\n        // without Fixup, rather than treating an unresolved name as success.\n        constexpr bool visibility_supported = GetArch() == Arch::kArm || GetArch() == Arch::kArm64;\n        const auto hook_initialization = [&](auto &hook) {\n            if (!HookSym(handler, hook)) return false;\n            LOGI(\"ClassLinker initialization hook installed: %.*s\",\n                 static_cast<int>(hook.sym.size()), hook.sym.data());\n            return true;\n        };\n        const auto hook_visibility = [&]() {\n            return sdk_int >= __ANDROID_API_R__ && visibility_supported &&\n                   (hook_initialization(AdjustThreadVisibilityCounter) ||\n                    hook_initialization(MarkVisiblyInitialized));\n        };\n        const bool fixup_hooked = hook_initialization(FixupStaticTrampolinesWithThread) ||\n                                  hook_initialization(FixupStaticTrampolines) ||\n                                  hook_initialization(FixupStaticTrampolinesRaw);\n        bool visibility_hooked = false;\n        if (!fixup_hooked) {\n            visibility_hooked = hook_visibility();\n            if (!visibility_hooked) {\n                LOGE(\"No class initialization hook installed (Fixup or ARM visibility fallback)\");\n                return false;\n            }\n        }\n"
+        },
+        {
+          "before": "        if (sdk_int >= __ANDROID_API_R__) {\n            if constexpr (GetArch() != Arch::kX86 && GetArch() != Arch::kX86_64) {\n                // fixup static trampoline may have been inlined\n                HookSyms(handler, AdjustThreadVisibilityCounter, MarkVisiblyInitialized);\n            }\n        }\n",
+          "after": "        if (!visibility_hooked) {\n            // Preserve the existing additional ARM visibility protection when\n            // Fixup was installed; avoid installing the same fallback twice.\n            visibility_hooked = hook_visibility();\n        }\n        LOGI(\"ClassLinker initialization coverage: Fixup=%d, visibility=%d\",\n             fixup_hooked, visibility_hooked);\n"
+        }
+      ]
+    },
+    {
+      "path": "lsplant/src/main/jni/include/utils/hook_helper.hpp",
+      "before_sha256": "2a345fad7a3f64cfa458039a40b437d45403e0ed6ac75faa842c6bef1b1effea",
+      "after_sha256": "5c6e1ac60fa74fb419d51d676f3b2f7f309a5a2bdef02c8c15bb07a9c2a24987",
+      "replacements": [
+        {
+          "before": "    if (original) {\n        if constexpr (is_instance_v<decltype(arg.backup), MemberFunction>) {\n            void *backup = handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace));\n            arg.backup = reinterpret_cast<typename decltype(arg.backup)::FunType>(backup);\n        } else {\n            arg.backup = reinterpret_cast<decltype(arg.backup)>(\n                handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace)));\n        }\n        return true;\n",
+          "after": "    if (original) {\n        void *backup = handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace));\n        if (!backup) return false;\n        if constexpr (is_instance_v<decltype(arg.backup), MemberFunction>) {\n            arg.backup = reinterpret_cast<typename decltype(arg.backup)::FunType>(backup);\n        } else {\n            arg.backup = reinterpret_cast<decltype(arg.backup)>(backup);\n        }\n        return true;\n"
+        }
+      ]
+    }
+  ]
+}

@@ -16,6 +16,16 @@ uses C++ generated ARM bridges and exposes a static `dobby` CMake target when
 no recursive submodules. These source references do not prove operation on this
 device; the project NDK build and subsequent device test provide that validation.
 
+Version 6 applies the checked ClassLinker and hook-helper backport in `../patches/`
+to the pinned LSPlant headers before compiling. The source reference is upstream
+commit `0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081`, linked by the maintainer in
+Samsung issue #171. That report concerns Android 16; this module remains gated
+to API 33 and uses only the alternatives already present in its pinned source.
+The checked backport requires a genuinely installed Fixup or supported ARM
+visibility hook and preserves the registration and interpreter requirements.
+An inline backend returning no backup is treated as failure. The patch script,
+diff, and source-hash checks are provided with the module for rebuilding.
+
 XZ Embedded is pinned at `ae63ae3a36ed01724674e8f3d750dc47bf125410` (0BSD).
 The static decoder supports CRC32, CRC64, SHA-256, and the ARM, ARM64, ARM Thumb,
 and x86 BCJ filters; unsupported integrity checks are rejected. It is used only

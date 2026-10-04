@@ -1,0 +1,75 @@
+--- a/lsplant/src/main/jni/art/runtime/class_linker.hpp
++++ b/lsplant/src/main/jni/art/runtime/class_linker.hpp
+@@ -141,9 +141,31 @@
+             HookSyms(handler, ShouldUseInterpreterEntrypoint);
+         }
+ 
+-        if (!HookSyms(handler, FixupStaticTrampolinesWithThread, FixupStaticTrampolines,
+-                      FixupStaticTrampolinesRaw)) {
+-            return false;
++        // Some ART builds inline FixupStaticTrampolines. Preserve class-init
++        // coverage by requiring an installed visibility hook before proceeding
++        // without Fixup, rather than treating an unresolved name as success.
++        constexpr bool visibility_supported = GetArch() == Arch::kArm || GetArch() == Arch::kArm64;
++        const auto hook_initialization = [&](auto &hook) {
++            if (!HookSym(handler, hook)) return false;
++            LOGI("ClassLinker initialization hook installed: %.*s",
++                 static_cast<int>(hook.sym.size()), hook.sym.data());
++            return true;
++        };
++        const auto hook_visibility = [&]() {
++            return sdk_int >= __ANDROID_API_R__ && visibility_supported &&
++                   (hook_initialization(AdjustThreadVisibilityCounter) ||
++                    hook_initialization(MarkVisiblyInitialized));
++        };
++        const bool fixup_hooked = hook_initialization(FixupStaticTrampolinesWithThread) ||
++                                  hook_initialization(FixupStaticTrampolines) ||
++                                  hook_initialization(FixupStaticTrampolinesRaw);
++        bool visibility_hooked = false;
++        if (!fixup_hooked) {
++            visibility_hooked = hook_visibility();
++            if (!visibility_hooked) {
++                LOGE("No class initialization hook installed (Fixup or ARM visibility fallback)");
++                return false;
++            }
+         }
+ 
+         if (!HookSyms(handler, RegisterNativeClassLinker, RegisterNative, RegisterNativeFast,
+@@ -153,12 +175,13 @@
+             return false;
+         }
+ 
+-        if (sdk_int >= __ANDROID_API_R__) {
+-            if constexpr (GetArch() != Arch::kX86 && GetArch() != Arch::kX86_64) {
+-                // fixup static trampoline may have been inlined
+-                HookSyms(handler, AdjustThreadVisibilityCounter, MarkVisiblyInitialized);
+-            }
+-        }
++        if (!visibility_hooked) {
++            // Preserve the existing additional ARM visibility protection when
++            // Fixup was installed; avoid installing the same fallback twice.
++            visibility_hooked = hook_visibility();
++        }
++        LOGI("ClassLinker initialization coverage: Fixup=%d, visibility=%d",
++             fixup_hooked, visibility_hooked);
+ 
+         if (!RETRIEVE_MEM_FUNC_SYMBOL(
+                 SetEntryPointsToInterpreter,
+--- a/lsplant/src/main/jni/include/utils/hook_helper.hpp
++++ b/lsplant/src/main/jni/include/utils/hook_helper.hpp
+@@ -169,12 +169,12 @@
+ template <HookerType T>
+ inline static bool HookSymNoHandle(const HookHandler &handler, void *original, T &arg) {
+     if (original) {
++        void *backup = handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace));
++        if (!backup) return false;
+         if constexpr (is_instance_v<decltype(arg.backup), MemberFunction>) {
+-            void *backup = handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace));
+             arg.backup = reinterpret_cast<typename decltype(arg.backup)::FunType>(backup);
+         } else {
+-            arg.backup = reinterpret_cast<decltype(arg.backup)>(
+-                handler.inline_hooker(original, reinterpret_cast<void *>(arg.replace)));
++            arg.backup = reinterpret_cast<decltype(arg.backup)>(backup);
+         }
+         return true;
+     } else {

@@ -2,7 +2,7 @@
 
 This module's source is published under GNU GPL version 3; see LICENSE. Source dependencies are fetched at fixed revisions during the build. No vendor source is bundled in this project checkout.
 
-- **LSPlant**: https://github.com/LSPosed/LSPlant/tree/a612522188d903a523fc6760cd4ee257c3224d8c — LGPL-3.0. The static library and its generated hook stubs provide Java-method interception. This is a standalone dependency, not a source match for LSPosed build 7854.
+- **LSPlant**: https://github.com/LSPosed/LSPlant/tree/a612522188d903a523fc6760cd4ee257c3224d8c — LGPL-3.0, with the checked compatibility backport supplied under `patches/`. Its upstream reference is https://github.com/LSPosed/LSPlant/commit/0cb2a316f7b1a8f2f5bbccd6ae56fdf0fc209081 . The static library and its generated hook stubs provide Java-method interception. This is a standalone dependency, not a source match for LSPosed build 7854.
 - **DexBuilder**: https://github.com/LSPosed/DexBuilder/tree/b5a00f2ea94ad4c3b92054fd53896dbb429298f9 — LGPL-3.0; fetched through LSPlant's pinned submodule.
 - **parallel-hashmap**: revision c2fabc9ac008c4ce8ef86e8c477ee3ea15cb2ab2 — fetched through the pinned DexBuilder submodule; its license is retained from that checkout.
 - **Dobby**: https://github.com/LSPosed/Dobby/tree/6813ca76ddeafcaece525bf8c6cde7ff4c21d3ce — Apache-2.0 native inline-hook backend, paired with the same LSPlant revision in public LSPosed source.

@@ -13,6 +13,8 @@ required = [
     'META-INF/com/google/android/updater-script',
     'zygisk/arm64-v8a.so', 'zygisk/armeabi-v7a.so',
     'README.md', 'THIRD_PARTY.md', 'LICENSE',
+    'patches/README.md', 'patches/apply-lsplant-compat.py',
+    'patches/lsplant-compat.patch', 'patches/lsplant-android13-init.json',
 ]
 for item in required:
     if not (stage / item).is_file():

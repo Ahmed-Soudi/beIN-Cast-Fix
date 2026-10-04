@@ -240,7 +240,7 @@ public:
         env_->ReleaseStringUTFChars(args->nice_name, name);
         if (!selected_) { unload(); return; }
         const int sdk = android_get_device_api_level();
-        LOGI("selected %s (v5, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
+        LOGI("selected %s (v6, API %d, %s)", kProcess, sdk, sizeof(void *) == 8 ? "64-bit" : "32-bit");
         if (sdk != 33) {
             LOGE("prototype supports Android 13/API33 only");
             selected_ = false;

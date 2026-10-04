@@ -29,6 +29,6 @@ jobs:
         run: bash zygisk/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: beIN-Cast-Root-v5-prototype
-          path: zygisk/dist/beIN-Cast-Root-v5-prototype.zip
+          name: beIN-Cast-Root-v6-prototype
+          path: zygisk/dist/beIN-Cast-Root-v6-prototype.zip
           if-no-files-found: error
