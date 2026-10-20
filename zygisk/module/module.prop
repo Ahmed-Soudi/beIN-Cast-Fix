@@ -1,6 +1,6 @@
 id=bein_cast_root
 name=beIN Cast Root Prototype
-version=v8-startup-diagnostic
-versionCode=8
+version=v9-native-hook-trials
+versionCode=9
 author=Ahmed Soudi
-description=Startup diagnostic for beIN CONNECT MENA using the reviewed v7 engine. Defaults to engine-only, without callback DEX or Java hooks. Requires working Zygisk.
+description=Native ART hook isolation trials for beIN CONNECT MENA. Defaults to preparation without native interception. No Java hooks or casting changes. Requires working Zygisk.

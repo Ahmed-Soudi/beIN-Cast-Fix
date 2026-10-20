@@ -51,17 +51,21 @@ Build with an Android NDK supporting C++20 (the project build uses NDK r27), CMa
 `libc++_shared.so`, LSPlant, Dobby, and `liblzma` are absent from ELF DT_NEEDED entries. Static
 library symbols are hidden to reduce C++ symbol collisions with the host app.
 
-Package the compiled Java bridge as `hook.dex` at the module root. The native
-library reads it before sandbox specialization, only in `ptv.bein.mena`, and loads
-it from memory afterward. This prototype intentionally runs only on Android 13
-(API 33). Nonmatching processes and Android versions do not initialize ART hooks.
+Version 9 is a native-only startup diagnostic. It does not build, package or
+load a callback DEX and has no Java Hook/Deoptimize/Cast setup path. Its prepare
+mode runs the same LSPlant initialization with original-target backup pointers
+and zero native interception. Group modes install only allowlisted targets and
+bypass the rest; all expected requests and counts must pass audit. Such partial
+initialization is not a functional engine. LSPlant internal hook-acceptance logs
+must be interpreted using the module's explicit PROBE RESULT audit.
 
 Retain upstream licenses and provide the pinned source and build instructions
 with any distributed binary. LSPlant and DexBuilder use LGPL-3.0; static linking
 requires making the relevant object/source material available for relinking.
 Rebuilding from the pinned source is part of the supplied prototype workflow.
 
-This remains a device experiment. LSPlant changes ART and generates hook stub DEX
-classes; removing the LSPosed loader does not establish that beIN accepts this
+This remains a device experiment. LSPlant can change ART and generate hook stub DEX
+classes when Java hooking is used; removing the LSPosed loader does not establish that beIN accepts this
 different instrumentation. Neither authentication, DRM, receiver selection, nor
 root checks are modified by this code.
+

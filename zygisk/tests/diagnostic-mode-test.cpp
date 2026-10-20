@@ -12,17 +12,21 @@ int main() {
     using bein::parse_diagnostic_mode;
     constexpr std::array valid = {
         std::pair{"loader", DiagnosticMode::Loader},
-        std::pair{"engine", DiagnosticMode::Engine},
-        std::pair{"cast", DiagnosticMode::Cast},
+        std::pair{"prepare", DiagnosticMode::Prepare},
+        std::pair{"visibility", DiagnosticMode::Visibility},
+        std::pair{"registration", DiagnosticMode::Registration},
+        std::pair{"status", DiagnosticMode::Status},
+        std::pair{"collection", DiagnosticMode::Collection},
+        std::pair{"instrumentation", DiagnosticMode::Instrumentation},
+        std::pair{"all", DiagnosticMode::All},
     };
     for (const auto &[name, mode] : valid) {
         for (const std::string_view suffix : {"", "\n", "\r\n"}) {
             const std::string input = std::string(name) + std::string(suffix);
-            assert(parse_diagnostic_mode(input) == mode);
+            if (input.size() <= 16) assert(parse_diagnostic_mode(input) == mode);
+            else assert(!parse_diagnostic_mode(input));
         }
         assert(std::string_view(bein::diagnostic_mode_name(mode)) == name);
-        // Partial file reads and prefixes must not accidentally activate a
-        // stage. Each prefix shorter than its complete mode is rejected.
         const std::string_view input(name);
         for (size_t size = 0; size < input.size(); ++size)
             assert(!parse_diagnostic_mode(input.substr(0, size)));
@@ -34,7 +38,6 @@ int main() {
         assert(!parse_diagnostic_mode(std::string(name) + "\r\n\r\n"));
         assert(!parse_diagnostic_mode(std::string(name) + "\n\r"));
         assert(!parse_diagnostic_mode(std::string(name) + "\n "));
-        // string_view preserves these embedded NULs, unlike C-string input.
         std::string embedded(name);
         embedded.insert(1, 1, '\0');
         assert(!parse_diagnostic_mode(embedded));
@@ -43,13 +46,17 @@ int main() {
         embedded += "\n";
         assert(!parse_diagnostic_mode(embedded));
     }
-    for (const std::string_view input : {"", "\n", "\r\n", "Loader", "ENGINE", "Cast",
-                                         "unknown", "disabled", "loader engine", "cast\nengine"})
+    for (const std::string_view input : {"", "\n", "\r\n", "Loader", "PREPARE", "All",
+                                         "engine", "engine\n", "engine\r\n", "cast", "cast\n", "cast\r\n",
+                                         "unknown", "disabled", "status all",
+                                         "status\nall"})
         assert(!parse_diagnostic_mode(input));
     assert(!parse_diagnostic_mode(std::string(16, 'x')));
     assert(!parse_diagnostic_mode(std::string(17, 'x')));
-    assert(!parse_diagnostic_mode("engine" + std::string(10, ' ')));
-    assert(!parse_diagnostic_mode("engine" + std::string(11, ' ')));
+    // The cap includes the line ending: this longest mode fits one LF, but
+    // its CRLF form is 17 bytes and must be rejected rather than truncated.
+    assert(parse_diagnostic_mode("instrumentation\n") == DiagnosticMode::Instrumentation);
+    assert(!parse_diagnostic_mode("instrumentation\r\n"));
     assert(std::string_view(bein::diagnostic_mode_name(static_cast<DiagnosticMode>(99))) == "invalid");
-    puts("Exact bounded diagnostic-mode parser scenarios passed");
+    puts("Exact bounded v9 diagnostic-mode parser scenarios passed");
 }

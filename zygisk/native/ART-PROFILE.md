@@ -1,4 +1,4 @@
-# Inspected ART profile used by versions 7 and 8
+# Inspected ART profile used by versions 7, 8 and 9
 
 This is a device-specific compatibility profile, not a general Android 13 ABI.
 Only API 33, ARM64, GNU build ID `a47994c420371ffbd05d16fc9a15ac9f`, and a
@@ -91,3 +91,21 @@ detection caused it. Version 8 retains this engine unchanged and compares a
 resident-library control with read-only preflight against the same preflight
 plus LSPlant initialization. Neither diagnostic stage loads the callback DEX,
 deoptimizes Java methods, hooks Application.attach, or looks up Cast classes.
+
+
+## Version 9 isolation
+
+The matched v8 engine recheck used the same root UID0 explicit component launch
+as the successful loader control. Its native engine reached readiness, then
+failed 2.703 seconds later with ArrayIndexOutOfBoundsException in the protected
+getMediaURL startup path, without callback DEX or Java/Cast hooks. The earlier
+loader control stayed alive for about 57 seconds after passing splash.
+
+V9 retains this profile and all five engine patches unchanged. It allows only
+six unique exact native hook targets, verifies every request and ownership, and
+requires expected interception/bypass counts. Preparation returns original
+addresses without Dobby installation; per-group modes add only their selected
+native interception. These modes cannot install Java hooks. Their partial
+backups must never be reused as a functional engine. Native code remains
+resident after partial failure, with no in-process retry. This diagnostic does
+not establish a particular ABI bug or prove anti-tamper detection.

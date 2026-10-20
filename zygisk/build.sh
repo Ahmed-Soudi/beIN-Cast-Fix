@@ -10,10 +10,8 @@ fi
 NDK_DIR=${BEIN_NDK_DIR:-"$SDK_ROOT/ndk/27.3.13750724"}
 CMAKE_BIN=${BEIN_CMAKE_BIN:-"$SDK_ROOT/cmake/3.22.1/bin/cmake"}
 NINJA_BIN="$SDK_ROOT/cmake/3.22.1/bin/ninja"
-ANDROID_JAR="$SDK_ROOT/platforms/android-34/android.jar"
-D8_BIN="$SDK_ROOT/build-tools/35.0.0/d8"
 
-for required in "$ANDROID_JAR" "$D8_BIN" "$CMAKE_BIN" "$NDK_DIR/build/cmake/android.toolchain.cmake"; do
+for required in "$CMAKE_BIN" "$NDK_DIR/build/cmake/android.toolchain.cmake"; do
     [[ -f "$required" ]] || { echo "Required tool missing: $required" >&2; exit 1; }
 done
 
@@ -50,18 +48,12 @@ bash "$PROJECT_DIR/tests/run-compat-tests.sh"
 bash "$PROJECT_DIR/tests/run-art-resolver-tests.sh"
 bash "$PROJECT_DIR/tests/run-art-compatibility-tests.sh"
 bash "$PROJECT_DIR/tests/run-diagnostic-mode-tests.sh"
+bash "$PROJECT_DIR/tests/run-native-hook-probe-tests.sh"
 bash "$PROJECT_DIR/tests/run-host-tests.sh"
-javac --release 8 -cp "$ANDROID_JAR" -d "$PROJECT_DIR/build/classes" \
-    "$PROJECT_DIR/java/com/soudi/beincastroot/HookBridge.java"
-"$D8_BIN" --release --min-api 26 --lib "$ANDROID_JAR" \
-    --output "$PROJECT_DIR/build/dex" \
-    "$PROJECT_DIR/build/classes/com/soudi/beincastroot/HookBridge.class"
-
 STAGE_DIR="$PROJECT_DIR/build/module"
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR/zygisk"
 cp -a "$PROJECT_DIR/module/." "$STAGE_DIR/"
-cp "$PROJECT_DIR/build/dex/classes.dex" "$STAGE_DIR/hook.dex"
 cp "$PROJECT_DIR/README.md" "$STAGE_DIR/README.md"
 cp "$PROJECT_DIR/THIRD_PARTY.md" "$STAGE_DIR/THIRD_PARTY.md"
 cp "$PROJECT_DIR/LICENSE" "$STAGE_DIR/LICENSE"
@@ -70,6 +62,7 @@ mkdir -p "$STAGE_DIR/native"
 cp "$PROJECT_DIR/native/ART-PROFILE.md" "$STAGE_DIR/native/ART-PROFILE.md"
 cp "$PROJECT_DIR/native/ArtCompatibility.hpp" "$STAGE_DIR/native/ArtCompatibility.hpp"
 cp "$PROJECT_DIR/native/DiagnosticMode.hpp" "$STAGE_DIR/native/DiagnosticMode.hpp"
+cp "$PROJECT_DIR/native/NativeHookProbe.hpp" "$STAGE_DIR/native/NativeHookProbe.hpp"
 cp "$PROJECT_DIR/native/DEPENDENCIES.md" "$STAGE_DIR/native/DEPENDENCIES.md"
 python3 - "$PROJECT_DIR/vendor" "$STAGE_DIR/licenses" <<'PY'
 from pathlib import Path
@@ -113,4 +106,5 @@ PY
 done
 
 mkdir -p "$PROJECT_DIR/dist"
-python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v8-diagnostic.zip"
+python3 "$PROJECT_DIR/package.py" "$STAGE_DIR" "$PROJECT_DIR/dist/beIN-Cast-Root-v9-native-trials.zip"
+
